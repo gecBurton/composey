@@ -1,10 +1,15 @@
 import json
 import subprocess
-from schema.compose import Application as DockerApplication, Service as DockerService
+
+from schema.compose import Application as DockerApplication
 from schema.semantic import (
     Application as SemanticApplication,
-    Service as SemanticService,
+)
+from schema.semantic import (
     Relationship,
+)
+from schema.semantic import (
+    Service as SemanticService,
 )
 
 

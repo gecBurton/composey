@@ -1,8 +1,7 @@
 import os
 
-
 from main import parse
-from schema.compose import Service, Build, Port, Application, Dependency
+from schema.compose import Application, Build, Dependency, Port, Service
 
 CWD = os.path.join(os.path.dirname(__file__), "", "..")
 

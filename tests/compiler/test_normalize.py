@@ -1,11 +1,16 @@
-import pytest
+from main import normalize
 from schema.compose import (
     Application as DockerApplication,
-    Service as DockerService,
-    Port as DockerPort,
+)
+from schema.compose import (
     Dependency,
 )
-from main import normalize
+from schema.compose import (
+    Port as DockerPort,
+)
+from schema.compose import (
+    Service as DockerService,
+)
 
 
 def test_normalize_basic_service():
