@@ -1,9 +1,10 @@
 import os
 
 
-from schema.compose import parse, Service, Build, Port, Application, Dependency
+from main import parse
+from schema.compose import Service, Build, Port, Application, Dependency
 
-CWD = os.path.join(os.path.dirname(__file__), "..", "..")
+CWD = os.path.join(os.path.dirname(__file__), "", "..")
 
 
 def test_parse():
@@ -13,8 +14,7 @@ def test_parse():
 
     expected = Application(
         services={
-
-                "backend": Service(
+            "backend": Service(
                 build=Build(context="backend"),
                 ports=[
                     Port(target=80, published=80),
@@ -32,8 +32,7 @@ def test_parse():
                     "db": Dependency(condition="service_started", required=True)
                 },
             ),
-            "db":
-            Service(
+            "db": Service(
                 image="mariadb:10.6.4-focal",
                 environment={
                     "MYSQL_DATABASE": "example",

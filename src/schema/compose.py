@@ -1,8 +1,6 @@
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator
-import json
 import os
-import subprocess
 
 
 class Port(BaseModel):
@@ -26,36 +24,29 @@ class Build(BaseModel):
             return os.path.basename(v)
         return v
 
+
 class Dependency(BaseModel):
-    condition : str = Field(description="condition")
+    condition: str = Field(description="condition")
     required: bool = Field(description="required", default=True)
+
 
 class Service(BaseModel):
     """
     docker-compose service
     """
+
     model_config = {"extra": "ignore"}
-    
+
     build: Optional[Build] = Field(description="build", default=None)
     ports: Optional[list[Port]] = Field(description="ports", default=None)
     image: Optional[str] = Field(description="image", default=None)
-    environment: dict[str, Optional[str]] = Field(description="environment", default_factory=dict)
+    environment: dict[str, Optional[str]] = Field(
+        description="environment", default_factory=dict
+    )
     depends_on: dict[str, Dependency] = Field(default_factory=dict)
-    
 
 
 class Application(BaseModel):
     model_config = {"extra": "ignore"}
 
     services: dict[str, Service]
-
-
-def parse(file_path: str) -> Application:
-    result = subprocess.run(
-        ["docker", "compose", "-f", file_path, "config", "--format", "json"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    raw = json.loads(result.stdout)
-    return Application.model_validate(raw)
