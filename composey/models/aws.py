@@ -3,6 +3,14 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TerraformLifecycle(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    create_before_destroy: Optional[bool] = None
+    prevent_destroy: Optional[bool] = None
+    ignore_changes: Optional[List[str]] = None
+
+
 class SecurityGroupRule(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -41,6 +49,7 @@ class EcsTaskDefinition(BaseModel):
     container_definitions: str  # We usually jsonencode the ContainerDefinition list
     execution_role_arn: str
     task_role_arn: Optional[str] = None
+    tags: Optional[Dict[str, str]] = None
 
 
 class EcsService(BaseModel):
@@ -54,6 +63,7 @@ class EcsService(BaseModel):
 
     network_configuration: Dict[str, Any]  # Subnets and SGs
     load_balancer: List[Dict[str, Any]] = Field(default_factory=list)
+    tags: Optional[Dict[str, str]] = None
 
 
 class SecurityGroup(BaseModel):
@@ -62,6 +72,7 @@ class SecurityGroup(BaseModel):
     name: str
     vpc_id: str
     description: str
+    tags: Optional[Dict[str, str]] = None
 
 
 class S3Bucket(BaseModel):
@@ -69,6 +80,7 @@ class S3Bucket(BaseModel):
 
     bucket: str
     force_destroy: bool = True
+    tags: Optional[Dict[str, str]] = None
 
 
 class IamRole(BaseModel):
@@ -76,6 +88,7 @@ class IamRole(BaseModel):
 
     name: str
     assume_role_policy: str
+    tags: Optional[Dict[str, str]] = None
 
 
 class IamRolePolicy(BaseModel):
@@ -99,6 +112,7 @@ class DbInstance(BaseModel):
     publicly_accessible: bool = False
     username: Optional[str] = None
     password: Optional[str] = None
+    tags: Optional[Dict[str, str]] = None
 
 
 class DbSubnetGroup(BaseModel):
@@ -106,6 +120,7 @@ class DbSubnetGroup(BaseModel):
 
     name: str
     subnet_ids: List[str]
+    tags: Optional[Dict[str, str]] = None
 
 
 class ElastiCacheCluster(BaseModel):
@@ -117,6 +132,7 @@ class ElastiCacheCluster(BaseModel):
     num_cache_nodes: int
     subnet_group_name: str
     security_group_ids: List[str]
+    tags: Optional[Dict[str, str]] = None
 
 
 class ElastiCacheSubnetGroup(BaseModel):
@@ -124,6 +140,7 @@ class ElastiCacheSubnetGroup(BaseModel):
 
     name: str
     subnet_ids: List[str]
+    tags: Optional[Dict[str, str]] = None
 
 
 class LbTargetGroup(BaseModel):
@@ -135,6 +152,7 @@ class LbTargetGroup(BaseModel):
     vpc_id: str
     target_type: Literal["instance", "ip", "lambda", "alb"]
     health_check: Optional[Dict[str, Any]] = None
+    tags: Optional[Dict[str, str]] = None
 
 
 class LbListenerRule(BaseModel):
@@ -144,6 +162,7 @@ class LbListenerRule(BaseModel):
     priority: int
     action: List[Dict[str, Any]]
     condition: List[Dict[str, Any]]
+    tags: Optional[Dict[str, str]] = None
 
 
 class SecretsManagerSecret(BaseModel):
@@ -151,6 +170,7 @@ class SecretsManagerSecret(BaseModel):
 
     name: str
     description: Optional[str] = None
+    tags: Optional[Dict[str, str]] = None
 
 
 class SecretsManagerSecretVersion(BaseModel):
@@ -158,6 +178,7 @@ class SecretsManagerSecretVersion(BaseModel):
 
     secret_id: str
     secret_string: str
+    lifecycle: Optional[TerraformLifecycle] = None
 
 
 class RandomPassword(BaseModel):
@@ -165,6 +186,14 @@ class RandomPassword(BaseModel):
 
     length: int = 16
     special: bool = False
+
+
+class CloudWatchLogGroup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    retention_in_days: int = 7
+    tags: Optional[Dict[str, str]] = None
 
 
 class AWSResources(BaseModel):
@@ -176,7 +205,9 @@ class AWSResources(BaseModel):
     aws_ecs_service: Dict[str, EcsService] = Field(default_factory=dict)
     aws_security_group: Dict[str, SecurityGroup] = Field(default_factory=dict)
     aws_security_group_rule: Dict[str, SecurityGroupRule] = Field(default_factory=dict)
-    aws_cloudwatch_log_group: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_cloudwatch_log_group: Dict[str, CloudWatchLogGroup] = Field(
+        default_factory=dict
+    )
     aws_lb_target_group: Dict[str, LbTargetGroup] = Field(default_factory=dict)
     aws_lb_listener_rule: Dict[str, LbListenerRule] = Field(default_factory=dict)
     aws_secretsmanager_secret: Dict[str, SecretsManagerSecret] = Field(

@@ -7,7 +7,7 @@ from ..models.terraform import TerraformManifest
 
 def generate(resources: AWSResources, env: Environment) -> str:
     # Build provider configuration
-    aws_provider = {"region": "us-east-1"}
+    aws_provider = {"region": env.region}
 
     if env.aws_endpoint:
         aws_provider.update(

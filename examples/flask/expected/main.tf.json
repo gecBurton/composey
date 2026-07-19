@@ -5,6 +5,18 @@
     }
   },
   "resource": {
+    "aws_cloudwatch_log_group": {
+      "backend_lg": {
+        "name": "/ecs/prod-flask-backend",
+        "retention_in_days": 7,
+        "tags": {}
+      },
+      "frontend_lg": {
+        "name": "/ecs/prod-flask-frontend",
+        "retention_in_days": 7,
+        "tags": {}
+      }
+    },
     "aws_db_instance": {
       "db_db": {
         "allocated_storage": 20,
@@ -15,6 +27,7 @@
         "password": "${random_password.db_password.result}",
         "publicly_accessible": false,
         "skip_final_snapshot": true,
+        "tags": {},
         "username": "admin",
         "vpc_security_group_ids": [
           "${aws_security_group.app_sg.id}"
@@ -27,7 +40,8 @@
         "subnet_ids": [
           "subnet-3",
           "subnet-4"
-        ]
+        ],
+        "tags": {}
       }
     },
     "aws_ecs_service": {
@@ -53,6 +67,7 @@
             "subnet-4"
           ]
         },
+        "tags": {},
         "task_definition": "${aws_ecs_task_definition.backend_td.arn}"
       },
       "frontend_service": {
@@ -71,12 +86,13 @@
             "subnet-4"
           ]
         },
+        "tags": {},
         "task_definition": "${aws_ecs_task_definition.frontend_td.arn}"
       }
     },
     "aws_ecs_task_definition": {
       "backend_td": {
-        "container_definitions": "[{\"name\": \"backend\", \"image\": \"placeholder\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"DATABASE_DB\", \"value\": \"example\"}, {\"name\": \"DATABASE_HOST\", \"value\": \"${aws_db_instance.db_db.address}\"}, {\"name\": \"DATABASE_PASSWORD\", \"value\": \"/run/secrets/db-password\"}, {\"name\": \"DATABASE_USER\", \"value\": \"root\"}, {\"name\": \"NODE_ENV\", \"value\": \"development\"}], \"secrets\": [{\"name\": \"DB_PASSWORD\", \"valueFrom\": \"${aws_secretsmanager_secret.backend_db-password_secret.arn}\"}, {\"name\": \"DB_PASSWORD\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:password::\"}, {\"name\": \"DB_USERNAME\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:username::\"}]}]",
+        "container_definitions": "[{\"name\": \"backend\", \"image\": \"placeholder\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"DATABASE_DB\", \"value\": \"example\"}, {\"name\": \"DATABASE_HOST\", \"value\": \"${aws_db_instance.db_db.address}\"}, {\"name\": \"DATABASE_PASSWORD\", \"value\": \"/run/secrets/db-password\"}, {\"name\": \"DATABASE_USER\", \"value\": \"root\"}, {\"name\": \"NODE_ENV\", \"value\": \"development\"}], \"secrets\": [{\"name\": \"DB_PASSWORD\", \"valueFrom\": \"${aws_secretsmanager_secret.backend_db-password_secret.arn}\"}, {\"name\": \"DB_PASSWORD\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:password::\"}, {\"name\": \"DB_USERNAME\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:username::\"}], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.backend_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
         "cpu": "256",
         "execution_role_arn": "${aws_iam_role.backend_exec_role.arn}",
         "family": "prod-flask-backend",
@@ -85,10 +101,11 @@
         "requires_compatibilities": [
           "FARGATE"
         ],
+        "tags": {},
         "task_role_arn": "${aws_iam_role.backend_task_role.arn}"
       },
       "frontend_td": {
-        "container_definitions": "[{\"name\": \"frontend\", \"image\": \"placeholder\", \"essential\": true, \"portMappings\": [{\"containerPort\": 3000, \"hostPort\": 3000, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
+        "container_definitions": "[{\"name\": \"frontend\", \"image\": \"placeholder\", \"essential\": true, \"portMappings\": [{\"containerPort\": 3000, \"hostPort\": 3000, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": [], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.frontend_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
         "cpu": "256",
         "execution_role_arn": "${aws_iam_role.frontend_exec_role.arn}",
         "family": "prod-flask-frontend",
@@ -97,25 +114,30 @@
         "requires_compatibilities": [
           "FARGATE"
         ],
+        "tags": {},
         "task_role_arn": "${aws_iam_role.frontend_task_role.arn}"
       }
     },
     "aws_iam_role": {
       "backend_exec_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-backend-exec-role"
+        "name": "prod-flask-backend-exec-role",
+        "tags": {}
       },
       "backend_task_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-backend-task-role"
+        "name": "prod-flask-backend-task-role",
+        "tags": {}
       },
       "frontend_exec_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-frontend-exec-role"
+        "name": "prod-flask-frontend-exec-role",
+        "tags": {}
       },
       "frontend_task_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-frontend-task-role"
+        "name": "prod-flask-frontend-task-role",
+        "tags": {}
       }
     },
     "aws_iam_role_policy": {
@@ -127,6 +149,11 @@
       "backend_db-password_policy": {
         "name": "prod-flask-backend-db-password-policy",
         "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"secretsmanager:GetSecretValue\"], \"Resource\": [\"${aws_secretsmanager_secret.backend_db-password_secret.arn}\"]}]}",
+        "role": "${aws_iam_role.backend_exec_role.name}"
+      },
+      "backend_exec_log_policy": {
+        "name": "prod-flask-backend-exec-log-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.backend_lg.arn}:*\"]}]}",
         "role": "${aws_iam_role.backend_exec_role.name}"
       },
       "backend_package_json_policy": {
@@ -148,6 +175,11 @@
         "name": "prod-flask-backend-db-rds-secret",
         "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"secretsmanager:GetSecretValue\"], \"Resource\": [\"${aws_secretsmanager_secret.db_db_secret.arn}\"]}]}",
         "role": "${aws_iam_role.backend_exec_role.name}"
+      },
+      "frontend_exec_log_policy": {
+        "name": "prod-flask-frontend-exec-log-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.frontend_lg.arn}:*\"]}]}",
+        "role": "${aws_iam_role.frontend_exec_role.name}"
       },
       "frontend_src_policy": {
         "name": "prod-flask-frontend-src-policy",
@@ -173,7 +205,8 @@
           }
         ],
         "listener_arn": "arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456",
-        "priority": 100
+        "priority": 100,
+        "tags": {}
       }
     },
     "aws_lb_target_group": {
@@ -186,6 +219,7 @@
         "name": "prod-flask-backend-tg",
         "port": 80,
         "protocol": "HTTP",
+        "tags": {},
         "target_type": "ip",
         "vpc_id": "vpc-123"
       }
@@ -193,36 +227,52 @@
     "aws_s3_bucket": {
       "backend_back_notused_bucket": {
         "bucket": "prod-flask-backend-back-notused",
-        "force_destroy": true
+        "force_destroy": true,
+        "tags": {}
       },
       "backend_package_json_bucket": {
         "bucket": "prod-flask-backend-package-json",
-        "force_destroy": true
+        "force_destroy": true,
+        "tags": {}
       },
       "backend_package_lock_json_bucket": {
         "bucket": "prod-flask-backend-package-lock-json",
-        "force_destroy": true
+        "force_destroy": true,
+        "tags": {}
       },
       "backend_src_bucket": {
         "bucket": "prod-flask-backend-src",
-        "force_destroy": true
+        "force_destroy": true,
+        "tags": {}
       },
       "frontend_src_bucket": {
         "bucket": "prod-flask-frontend-src",
-        "force_destroy": true
+        "force_destroy": true,
+        "tags": {}
       }
     },
     "aws_secretsmanager_secret": {
       "backend_db-password_secret": {
         "description": "Secret db-password for flask service backend",
-        "name": "prod-flask-backend-db-password"
+        "name": "prod-flask-backend-db-password",
+        "tags": {}
       },
       "db_db_secret": {
         "description": "Credentials for db RDS",
-        "name": "prod-flask-db-credentials"
+        "name": "prod-flask-db-credentials",
+        "tags": {}
       }
     },
     "aws_secretsmanager_secret_version": {
+      "backend_db-password_secret_v1": {
+        "lifecycle": {
+          "ignore_changes": [
+            "secret_string"
+          ]
+        },
+        "secret_id": "${aws_secretsmanager_secret.backend_db-password_secret.id}",
+        "secret_string": "PLACEHOLDER_VALUE_CHANGE_IN_AWS_CONSOLE"
+      },
       "db_db_secret_v1": {
         "secret_id": "${aws_secretsmanager_secret.db_db_secret.id}",
         "secret_string": "{\"username\": \"admin\", \"password\": \"${random_password.db_password.result}\", \"engine\": \"mariadb\"}"
@@ -232,6 +282,7 @@
       "app_sg": {
         "description": "Security group for flask in prod",
         "name": "prod-flask-sg",
+        "tags": {},
         "vpc_id": "vpc-123"
       }
     },
