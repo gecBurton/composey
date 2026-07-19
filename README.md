@@ -23,8 +23,8 @@ Composey provides a PaaS-like deployment experience where application engineers 
 - [x] **Public HTTP**: Automatic ALB ingress routing for services on port 80/443.
 - [x] **Secrets**: Automatic mapping of Compose `secrets` to AWS Secrets Manager.
 - [x] **Storage**: Automatic mapping of `volumes` to AWS S3 Buckets.
-- [ ] **Managed Postgres**: Infer RDS instance from `postgres` image. *(In Progress)*
-- [ ] **Managed Redis**: Infer ElastiCache from `redis` image. *(Pending)*
+- [x] **Managed Databases**: Automatically infers AWS RDS (Postgres/MySQL/MariaDB) from library images.
+- [x] **Managed Caching**: Automatically infers AWS ElastiCache (Redis) from library images.
 - [x] **Worker**: Support for background services without public ports.
 
 ### Quality & Guarantees
@@ -51,6 +51,40 @@ Composey provides a PaaS-like deployment experience where application engineers 
 10. **Every compiler stage is independently testable.**
 
 > **Core Philosophy:** Every feature must reduce the amount of AWS knowledge required by an application engineer.
+
+---
+
+## ✨ Managed Capabilities ("PaaS Magic")
+
+Composey doesn't just run containers; it intelligently substitutes cloud-native AWS services for common infrastructure components and supports intent-based scaling.
+
+### 📊 Compute & Database Scaling
+Composey supports the **`x-composey`** extension to allow engineers to specify the relative "size" of their resources without needing to know specific AWS instance classes or CPU/Memory units.
+
+**Supported Sizes:**
+- `small` (Default): 256 CPU, 512MB RAM | `db.t3.micro`
+- `medium`: 1024 CPU, 2GB RAM | `db.t3.medium`
+- `large`: 4096 CPU, 8GB RAM | `db.m5.large`
+
+**Example:**
+```yaml
+services:
+  web:
+    image: my-app
+    x-composey:
+      size: large
+```
+
+### 🗄 Managed Databases (RDS)
+If a service uses a standard database image (`postgres`, `mysql`, or `mariadb`), Composey will:
+1.  **Substitute Infrastructure**: Provision an **AWS RDS Instance** instead of a container.
+2.  **Automate Networking**: Create database subnet groups and security group rules automatically.
+3.  **Dynamic Host Injection**: Automatically scan your application's environment variables. If it finds a variable pointing to the database service name (e.g., `DB_HOST: db`), it replaces it with the **actual RDS endpoint address**.
+
+### ⚡️ Managed Caching (ElastiCache)
+If a service uses a `redis` image, Composey will:
+1.  Provision an **AWS ElastiCache (Redis) Cluster**.
+2.  Automatically wire the endpoint into any application containers that depend on it.
 
 ---
 

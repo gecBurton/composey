@@ -71,11 +71,17 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         ):
             capability = "cache"
 
+        # Extract x-composey size hint
+        size = "small"
+        if "size" in docker_service.x_composey:
+            size = docker_service.x_composey["size"]
+
         semantic_services.append(
             SemanticService(
                 name=s_name,
                 image=docker_service.image or "placeholder",
                 capability=capability,
+                size=size,
                 port=primary_port,
                 env=docker_service.environment,
                 secrets=secret_names,
