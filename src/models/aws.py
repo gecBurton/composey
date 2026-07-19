@@ -78,4 +78,5 @@ class AWSResources(BaseModel):
     aws_lb_listener_rule: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     aws_secretsmanager_secret: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     aws_s3_bucket: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_iam_role: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     aws_iam_role_policy: Dict[str, Dict[str, Any]] = Field(default_factory=dict)

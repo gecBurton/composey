@@ -29,15 +29,47 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
 
     # 2. Map each Semantic Service to ECS Fargate resources
     for service in app.services:
+        # Create IAM Roles for the service
+        task_role_key = f"{service.name}_task_role"
+        resources.aws_iam_role[task_role_key] = {
+            "name": get_name(f"{service.name}-task-role"),
+            "assume_role_policy": json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": "sts:AssumeRole",
+                            "Effect": "Allow",
+                            "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                        }
+                    ],
+                }
+            ),
+        }
+
+        exec_role_key = f"{service.name}_exec_role"
+        resources.aws_iam_role[exec_role_key] = {
+            "name": get_name(f"{service.name}-exec-role"),
+            "assume_role_policy": json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Action": "sts:AssumeRole",
+                            "Effect": "Allow",
+                            "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                        }
+                    ],
+                }
+            ),
+        }
+
         # Resolve storage to S3 buckets and IAM policies
         for bucket_name in service.storage:
-            # Sanitize for Terraform identifier (alphanumeric and underscore)
-            # Remove characters like / or . which often appear in path-based volume names
             safe_id = "".join(c if c.isalnum() else "_" for c in bucket_name).strip("_")
             bucket_key = f"{service.name}_{safe_id}_bucket"
 
             resources.aws_s3_bucket[bucket_key] = {
-                # S3 bucket name: lowercase, alphanumeric and hyphens only
                 "bucket": get_name(f"{service.name}-{safe_id}")
                 .lower()
                 .replace("_", "-")[:63],
@@ -47,7 +79,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             policy_key = f"{service.name}_{safe_id}_policy"
             resources.aws_iam_role_policy[policy_key] = {
                 "name": get_name(f"{service.name}-{safe_id}-policy"),
-                "role": "execution_role_placeholder",
+                "role": f"${{aws_iam_role.{task_role_key}.name}}",
                 "policy": json.dumps(
                     {
                         "Version": "2012-10-17",
@@ -80,6 +112,27 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 }
             )
 
+            # Grant Exec Role access to read the secret
+            secret_policy_key = f"{service.name}_{secret_name}_policy"
+            resources.aws_iam_role_policy[secret_policy_key] = {
+                "name": get_name(f"{service.name}-{secret_name}-policy"),
+                "role": f"${{aws_iam_role.{exec_role_key}.name}}",
+                "policy": json.dumps(
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": ["secretsmanager:GetSecretValue"],
+                                "Resource": [
+                                    f"${{aws_secretsmanager_secret.{secret_key}.arn}}"
+                                ],
+                            }
+                        ],
+                    }
+                ),
+            }
+
         # Container Definition
         container = ContainerDefinition(
             name=service.name,
@@ -104,7 +157,8 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             cpu=str(service.cpu),
             memory=str(service.memory),
             container_definitions=json.dumps([container.model_dump(exclude_none=True)]),
-            execution_role_arn="arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+            execution_role_arn=f"${{aws_iam_role.{exec_role_key}.arn}}",
+            task_role_arn=f"${{aws_iam_role.{task_role_key}.arn}}",
         )
 
         # ECS Service
@@ -154,7 +208,6 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 }
             ]
 
-            # Add SG rule to allow ALB to talk to the shared app SG on this service's port
             alb_ingress_rule_key = f"alb_to_{service.name}_rule"
             resources.aws_security_group_rule[alb_ingress_rule_key] = SecurityGroupRule(
                 type="ingress",
@@ -171,13 +224,10 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
     # 3. Infer Security Group Rules from Relationships
     for rel in app.relationships:
         rule_key = f"{rel.client}_to_{rel.server}_rule"
-
         server_service = next((s for s in app.services if s.name == rel.server), None)
         port = rel.port or (
             server_service.port if server_service and server_service.port else 80
         )
-
-        # Since it's a shared SG, the rule allows traffic from the SG to itself
         resources.aws_security_group_rule[rule_key] = SecurityGroupRule(
             type="ingress",
             from_port=port,

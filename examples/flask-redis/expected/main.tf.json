@@ -53,24 +53,44 @@
       "redis_td": {
         "container_definitions": "[{\"name\": \"redis\", \"image\": \"redislabs/redismod\", \"essential\": true, \"portMappings\": [{\"containerPort\": 6379, \"hostPort\": 6379, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
         "cpu": "256",
-        "execution_role_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "execution_role_arn": "${aws_iam_role.redis_exec_role.arn}",
         "family": "prod-flask-redis-redis",
         "memory": "512",
         "network_mode": "awsvpc",
         "requires_compatibilities": [
           "FARGATE"
-        ]
+        ],
+        "task_role_arn": "${aws_iam_role.redis_task_role.arn}"
       },
       "web_td": {
         "container_definitions": "[{\"name\": \"web\", \"image\": \"flask-redis-web:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
         "cpu": "256",
-        "execution_role_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "execution_role_arn": "${aws_iam_role.web_exec_role.arn}",
         "family": "prod-flask-redis-web",
         "memory": "512",
         "network_mode": "awsvpc",
         "requires_compatibilities": [
           "FARGATE"
-        ]
+        ],
+        "task_role_arn": "${aws_iam_role.web_task_role.arn}"
+      }
+    },
+    "aws_iam_role": {
+      "redis_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-flask-redis-redis-exec-role"
+      },
+      "redis_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-flask-redis-redis-task-role"
+      },
+      "web_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-flask-redis-web-exec-role"
+      },
+      "web_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-flask-redis-web-task-role"
       }
     },
     "aws_lb_listener_rule": {

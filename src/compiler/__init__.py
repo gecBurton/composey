@@ -17,4 +17,4 @@ def compile_to_terraform(compose_file: str, env: Environment, project_name: str)
     aws_resources = infer(semantic_app, env)
 
     # 4. Generate
-    return generate(aws_resources)
+    return generate(aws_resources, env)
