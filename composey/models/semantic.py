@@ -2,7 +2,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Capability = Literal["container", "database", "cache", "queue"]
+Capability = Literal["container", "database", "cache", "queue", "object-storage"]
 
 
 class Service(BaseModel):
