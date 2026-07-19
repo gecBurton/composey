@@ -54,23 +54,62 @@ Composey provides a PaaS-like deployment experience where application engineers 
 
 ---
 
-## 📦 Usage (Development)
+## 📦 Usage
 
 ### Requirements
-- Python 3.12+
-- `uv` (recommended)
+- Python 3.14+
+- [uv](https://docs.astral.sh/uv/) (recommended)
 - Docker & Docker Compose v2
 - Terraform CLI
 
+### Installation (Development)
+```bash
+# Clone the repository
+git clone https://github.com/GBurton/composey.git
+cd composey
+
+# Sync dependencies and install the 'composey' command locally
+uv sync
+```
+
+### Compiling a Project
+To compile a Docker Compose file, you must provide an **Environment** configuration (YAML) which describes the target AWS account context (VPC, Cluster, etc.).
+
+```bash
+# Basic compilation
+uv run composey --file examples/flask/compose.yml --env examples/prod.yaml
+
+# Short flags with custom project name and output directory
+uv run composey -f compose.yml -e prod.yaml -p my-app -o build/terraform
+
+# Show version
+uv run composey --version
+```
+
+### Environment Configuration (`prod.yaml`)
+```yaml
+name: prod
+vpc_id: vpc-12345678
+public_subnets:
+  - subnet-abc
+  - subnet-def
+private_subnets:
+  - subnet-ghi
+  - subnet-jkl
+ecs_cluster_arn: arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster
+alb_arn: arn:aws:lb:us-east-1:123456789012:loadbalancer/app/shared-alb/123
+alb_listener_arn: arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456
+```
+
 ### Running Tests
-The test suite includes unit tests, snapshot comparisons, and local cloud deployment verification.
+The test suite includes unit tests, snapshot comparisons, and local cloud deployment verification via LocalStack.
 
 ```bash
 make test
 ```
 
 ### Repository Structure
-- `src/compiler/`: The logic for each compilation stage.
-- `src/models/`: Pydantic schemas for Compose, Semantic, AWS, and Environment models.
+- `composey/compiler/`: The logic for each compilation stage.
+- `composey/models/`: Pydantic schemas for Compose, Semantic, AWS, and Environment models.
 - `examples/`: End-to-end examples that serve as documentation and "Golden" test snapshots.
 - `tests/`: High-fidelity test suite (Unit, Integration, LocalStack).
