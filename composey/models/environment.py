@@ -18,6 +18,7 @@ class Environment(BaseModel):
         description="List of private subnet IDs for tasks"
     )
     ecs_cluster_arn: str = Field(description="The ARN of the ECS Cluster")
+    region: str = Field(default="us-east-1", description="The AWS region")
     alb_arn: Optional[str] = Field(
         default=None, description="The ARN of the shared Application Load Balancer"
     )

@@ -1,7 +1,9 @@
 import json
+import re
 
 from ..models.aws import (
     AWSResources,
+    CloudWatchLogGroup,
     ContainerDefinition,
     DbInstance,
     DbSubnetGroup,
@@ -19,6 +21,7 @@ from ..models.aws import (
     SecretsManagerSecretVersion,
     SecurityGroup,
     SecurityGroupRule,
+    TerraformLifecycle,
 )
 from ..models.environment import Environment
 from ..models.semantic import Application as SemanticApp
@@ -37,6 +40,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         name=get_name("sg"),
         vpc_id=env.vpc_id,
         description=f"Security group for {app.name} in {env.name}",
+        tags=env.tags,
     )
 
     # 2. Map each Semantic Service to AWS resources
@@ -49,6 +53,13 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         }
         compute = size_map.get(service.size, size_map["small"])
 
+        # Override with explicit service-level CPU/Memory if provided
+        # (Assuming the model default values match the 'small' size)
+        if service.cpu != 256:
+            compute["cpu"] = service.cpu
+        if service.memory != 512:
+            compute["memory"] = service.memory
+
         if service.capability == "database":
             # Managed RDS Instance
             engine = "postgres"
@@ -56,6 +67,8 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 engine = "mysql"
             elif "mariadb" in service.image.lower():
                 engine = "mariadb"
+
+            db_username = "admin"
 
             # 1. Create a random master password
             password_key = f"{service.name}_password"
@@ -66,6 +79,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_secretsmanager_secret[db_secret_key] = SecretsManagerSecret(
                 name=get_name(f"{service.name}-credentials"),
                 description=f"Credentials for {service.name} RDS",
+                tags=env.tags,
             )
 
             # 3. Create the secret version (Initial credentials)
@@ -74,7 +88,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     secret_id=f"${{aws_secretsmanager_secret.{db_secret_key}.id}}",
                     secret_string=json.dumps(
                         {
-                            "username": "admin",
+                            "username": db_username,
                             "password": f"${{random_password.{password_key}.result}}",
                             "engine": engine,
                         }
@@ -86,6 +100,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_db_subnet_group[sng_key] = DbSubnetGroup(
                 name=get_name(f"{service.name}-sng"),
                 subnet_ids=env.private_subnets,
+                tags=env.tags,
             )
 
             # Map x-composey size to RDS instance classes
@@ -107,8 +122,9 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 vpc_security_group_ids=[f"${{aws_security_group.{app_sg_key}.id}}"],
                 skip_final_snapshot=True,
                 publicly_accessible=False,
-                username="admin",
+                username=db_username,
                 password=f"${{random_password.{password_key}.result}}",
+                tags=env.tags,
             )
             continue
 
@@ -118,6 +134,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_elasticache_subnet_group[sng_key] = ElastiCacheSubnetGroup(
                 name=get_name(f"{service.name}-sng"),
                 subnet_ids=env.private_subnets,
+                tags=env.tags,
             )
 
             # Map size to ElastiCache node types
@@ -135,6 +152,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 num_cache_nodes=1,
                 subnet_group_name=f"${{aws_elasticache_subnet_group.{sng_key}.name}}",
                 security_group_ids=[f"${{aws_security_group.{app_sg_key}.id}}"],
+                tags=env.tags,
             )
             continue
 
@@ -142,13 +160,25 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             # Managed S3 Bucket (Minio substitution)
             bucket_key = f"{service.name}_bucket"
             resources.aws_s3_bucket[bucket_key] = S3Bucket(
-                bucket=get_name(service.name).lower().replace("_", "-")[:63],
+                bucket=get_name(service.name)
+                .lower()
+                .replace("_", "-")[:63]
+                .rstrip("-"),
                 force_destroy=True,
+                tags=env.tags,
             )
             continue
 
         # Standard Container (ECS Fargate)
-        # Create IAM Roles for the service
+        # 1. Create a Log Group
+        log_group_key = f"{service.name}_lg"
+        resources.aws_cloudwatch_log_group[log_group_key] = CloudWatchLogGroup(
+            name=f"/ecs/{get_name(service.name)}",
+            retention_in_days=7,
+            tags=env.tags,
+        )
+
+        # 2. Create IAM Roles for the service
         task_role_key = f"{service.name}_task_role"
         resources.aws_iam_role[task_role_key] = IamRole(
             name=get_name(f"{service.name}-task-role"),
@@ -164,6 +194,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     ],
                 }
             ),
+            tags=env.tags,
         )
 
         exec_role_key = f"{service.name}_exec_role"
@@ -181,6 +212,31 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     ],
                 }
             ),
+            tags=env.tags,
+        )
+
+        # 3. Grant Exec Role permission to push logs
+        exec_log_policy_key = f"{service.name}_exec_log_policy"
+        resources.aws_iam_role_policy[exec_log_policy_key] = IamRolePolicy(
+            name=get_name(f"{service.name}-exec-log-policy"),
+            role=f"${{aws_iam_role.{exec_role_key}.name}}",
+            policy=json.dumps(
+                {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents",
+                            ],
+                            "Resource": [
+                                f"${{aws_cloudwatch_log_group.{log_group_key}.arn}}:*"
+                            ],
+                        }
+                    ],
+                }
+            ),
         )
 
         # Resolve storage to S3 buckets and IAM policies
@@ -191,8 +247,10 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_s3_bucket[bucket_key] = S3Bucket(
                 bucket=get_name(f"{service.name}-{safe_id}")
                 .lower()
-                .replace("_", "-")[:63],
+                .replace("_", "-")[:63]
+                .rstrip("-"),
                 force_destroy=True,
+                tags=env.tags,
             )
 
             policy_key = f"{service.name}_{safe_id}_policy"
@@ -223,7 +281,19 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_secretsmanager_secret[secret_key] = SecretsManagerSecret(
                 name=get_name(f"{service.name}-{secret_name}"),
                 description=f"Secret {secret_name} for {app.name} service {service.name}",
+                tags=env.tags,
             )
+
+            # Create a placeholder secret version so the secret is not empty
+            # Use ignore_changes so operators can update the value in AWS Console
+            resources.aws_secretsmanager_secret_version[f"{secret_key}_v1"] = (
+                SecretsManagerSecretVersion(
+                    secret_id=f"${{aws_secretsmanager_secret.{secret_key}.id}}",
+                    secret_string="PLACEHOLDER_VALUE_CHANGE_IN_AWS_CONSOLE",
+                    lifecycle=TerraformLifecycle(ignore_changes=["secret_string"]),
+                )
+            )
+
             container_secrets.append(
                 {
                     "name": secret_name.upper().replace("-", "_"),
@@ -267,6 +337,14 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             else [],
             environment=[{"name": k, "value": v} for k, v in service.env.items()],
             secrets=container_secrets,
+            logConfiguration={
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": f"${{aws_cloudwatch_log_group.{log_group_key}.name}}",
+                    "awslogs-region": env.region,
+                    "awslogs-stream-prefix": "ecs",
+                },
+            },
         )
 
         # Task Definition
@@ -278,6 +356,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             container_definitions=json.dumps([container.model_dump(exclude_none=True)]),
             execution_role_arn=f"${{aws_iam_role.{exec_role_key}.arn}}",
             task_role_arn=f"${{aws_iam_role.{task_role_key}.arn}}",
+            tags=env.tags,
         )
 
         # ECS Service
@@ -291,6 +370,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 "security_groups": [f"${{aws_security_group.{app_sg_key}.id}}"],
                 "assign_public_ip": False,
             },
+            tags=env.tags,
         )
 
         # 4. Handle Public Ingress (ALB integration)
@@ -303,6 +383,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 vpc_id=env.vpc_id,
                 target_type="ip",
                 health_check={"enabled": True, "path": "/", "matcher": "200-399"},
+                tags=env.tags,
             )
 
             if env.alb_listener_arn:
@@ -317,6 +398,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                         }
                     ],
                     condition=[{"path_pattern": {"values": ["/*"]}}],
+                    tags=env.tags,
                 )
 
             ecs_service.load_balancer = [
@@ -447,7 +529,14 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 # Choose best replacement based on variable intent
                 replacement = address
                 if server.capability == "object-storage":
-                    if any(k in name for k in ["BUCKET", "NAME"]):
+                    # Smart matching for bucket variables
+                    # Tighten check to avoid matching USERNAME/HOSTNAME
+                    if (
+                        name.endswith("_BUCKET")
+                        or name.endswith("_NAME")
+                        or name == "BUCKET"
+                        or name == "NAME"
+                    ):
                         replacement = bucket_id
                     elif any(k in name for k in ["ENDPOINT", "URL", "HOST"]):
                         # Keep protocol if present
@@ -463,9 +552,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     or f"://{server.name}/" in val
                     or val.endswith(f"://{server.name}")
                 ):
-                    import re
-
-                    pattern = re.compile(rf"://{server.name}(:\d+)?")
+                    pattern = re.compile(rf"://{re.escape(server.name)}(:\d+)?")
                     # If it's a URL-like string, we use the address-based replacement
                     url_replacement = (
                         f"https://{address}"
@@ -480,8 +567,13 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
 
     # 4. Infer Security Group Rules from Relationships
     for rel in app.relationships:
-        rule_key = f"{rel.client}_to_{rel.server}_rule"
         server_service = next((s for s in app.services if s.name == rel.server), None)
+
+        # Skip SG rules for object storage (S3 is not in VPC SG)
+        if server_service and server_service.capability == "object-storage":
+            continue
+
+        rule_key = f"{rel.client}_to_{rel.server}_rule"
 
         # Determine port based on capability if not explicitly provided
         default_port = 80

@@ -5,6 +5,13 @@
     }
   },
   "resource": {
+    "aws_cloudwatch_log_group": {
+      "web_lg": {
+        "name": "/ecs/prod-flask-redis-web",
+        "retention_in_days": 7,
+        "tags": {}
+      }
+    },
     "aws_ecs_service": {
       "web_service": {
         "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
@@ -28,12 +35,13 @@
             "subnet-4"
           ]
         },
+        "tags": {},
         "task_definition": "${aws_ecs_task_definition.web_td.arn}"
       }
     },
     "aws_ecs_task_definition": {
       "web_td": {
-        "container_definitions": "[{\"name\": \"web\", \"image\": \"flask-redis-web:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"REDIS_HOST\", \"value\": \"${aws_elasticache_cluster.redis_cache.cache_nodes[0].address}\"}], \"secrets\": []}]",
+        "container_definitions": "[{\"name\": \"web\", \"image\": \"flask-redis-web:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"REDIS_HOST\", \"value\": \"${aws_elasticache_cluster.redis_cache.cache_nodes[0].address}\"}], \"secrets\": [], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.web_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
         "cpu": "256",
         "execution_role_arn": "${aws_iam_role.web_exec_role.arn}",
         "family": "prod-flask-redis-web",
@@ -42,6 +50,7 @@
         "requires_compatibilities": [
           "FARGATE"
         ],
+        "tags": {},
         "task_role_arn": "${aws_iam_role.web_task_role.arn}"
       }
     },
@@ -54,7 +63,8 @@
         "security_group_ids": [
           "${aws_security_group.app_sg.id}"
         ],
-        "subnet_group_name": "${aws_elasticache_subnet_group.redis_sng.name}"
+        "subnet_group_name": "${aws_elasticache_subnet_group.redis_sng.name}",
+        "tags": {}
       }
     },
     "aws_elasticache_subnet_group": {
@@ -63,17 +73,27 @@
         "subnet_ids": [
           "subnet-3",
           "subnet-4"
-        ]
+        ],
+        "tags": {}
       }
     },
     "aws_iam_role": {
       "web_exec_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-redis-web-exec-role"
+        "name": "prod-flask-redis-web-exec-role",
+        "tags": {}
       },
       "web_task_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-redis-web-task-role"
+        "name": "prod-flask-redis-web-task-role",
+        "tags": {}
+      }
+    },
+    "aws_iam_role_policy": {
+      "web_exec_log_policy": {
+        "name": "prod-flask-redis-web-exec-log-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.web_lg.arn}:*\"]}]}",
+        "role": "${aws_iam_role.web_exec_role.name}"
       }
     },
     "aws_lb_listener_rule": {
@@ -94,7 +114,8 @@
           }
         ],
         "listener_arn": "arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456",
-        "priority": 100
+        "priority": 100,
+        "tags": {}
       }
     },
     "aws_lb_target_group": {
@@ -107,6 +128,7 @@
         "name": "prod-flask-redis-web-tg",
         "port": 8000,
         "protocol": "HTTP",
+        "tags": {},
         "target_type": "ip",
         "vpc_id": "vpc-123"
       }
@@ -115,6 +137,7 @@
       "app_sg": {
         "description": "Security group for flask-redis in prod",
         "name": "prod-flask-redis-sg",
+        "tags": {},
         "vpc_id": "vpc-123"
       }
     },

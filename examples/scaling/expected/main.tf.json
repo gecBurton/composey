@@ -5,6 +5,13 @@
     }
   },
   "resource": {
+    "aws_cloudwatch_log_group": {
+      "web_lg": {
+        "name": "/ecs/prod-scaling-web",
+        "retention_in_days": 7,
+        "tags": {}
+      }
+    },
     "aws_db_instance": {
       "db_db": {
         "allocated_storage": 20,
@@ -15,6 +22,7 @@
         "password": "${random_password.db_password.result}",
         "publicly_accessible": false,
         "skip_final_snapshot": true,
+        "tags": {},
         "username": "admin",
         "vpc_security_group_ids": [
           "${aws_security_group.app_sg.id}"
@@ -27,7 +35,8 @@
         "subnet_ids": [
           "subnet-3",
           "subnet-4"
-        ]
+        ],
+        "tags": {}
       }
     },
     "aws_ecs_service": {
@@ -53,12 +62,13 @@
             "subnet-4"
           ]
         },
+        "tags": {},
         "task_definition": "${aws_ecs_task_definition.web_td.arn}"
       }
     },
     "aws_ecs_task_definition": {
       "web_td": {
-        "container_definitions": "[{\"name\": \"web\", \"image\": \"nginx\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
+        "container_definitions": "[{\"name\": \"web\", \"image\": \"nginx\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": [], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.web_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
         "cpu": "4096",
         "execution_role_arn": "${aws_iam_role.web_exec_role.arn}",
         "family": "prod-scaling-web",
@@ -67,17 +77,27 @@
         "requires_compatibilities": [
           "FARGATE"
         ],
+        "tags": {},
         "task_role_arn": "${aws_iam_role.web_task_role.arn}"
       }
     },
     "aws_iam_role": {
       "web_exec_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-scaling-web-exec-role"
+        "name": "prod-scaling-web-exec-role",
+        "tags": {}
       },
       "web_task_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-scaling-web-task-role"
+        "name": "prod-scaling-web-task-role",
+        "tags": {}
+      }
+    },
+    "aws_iam_role_policy": {
+      "web_exec_log_policy": {
+        "name": "prod-scaling-web-exec-log-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.web_lg.arn}:*\"]}]}",
+        "role": "${aws_iam_role.web_exec_role.name}"
       }
     },
     "aws_lb_listener_rule": {
@@ -98,7 +118,8 @@
           }
         ],
         "listener_arn": "arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456",
-        "priority": 100
+        "priority": 100,
+        "tags": {}
       }
     },
     "aws_lb_target_group": {
@@ -111,6 +132,7 @@
         "name": "prod-scaling-web-tg",
         "port": 80,
         "protocol": "HTTP",
+        "tags": {},
         "target_type": "ip",
         "vpc_id": "vpc-123"
       }
@@ -118,7 +140,8 @@
     "aws_secretsmanager_secret": {
       "db_db_secret": {
         "description": "Credentials for db RDS",
-        "name": "prod-scaling-db-credentials"
+        "name": "prod-scaling-db-credentials",
+        "tags": {}
       }
     },
     "aws_secretsmanager_secret_version": {
@@ -131,6 +154,7 @@
       "app_sg": {
         "description": "Security group for scaling in prod",
         "name": "prod-scaling-sg",
+        "tags": {},
         "vpc_id": "vpc-123"
       }
     },
