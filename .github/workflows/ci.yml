@@ -46,6 +46,7 @@ jobs:
         uv run ruff check .
 
     - name: Run tests
-      run: make test
+      run: uv run pytest
       env:
         TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform_cache
+        PYTHONPATH: .
