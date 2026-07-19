@@ -26,6 +26,7 @@ class ContainerDefinition(BaseModel):
     essential: bool = True
     portMappings: List[Dict[str, Any]] = Field(default_factory=list)
     environment: List[Dict[str, str]] = Field(default_factory=list)
+    secrets: List[Dict[str, str]] = Field(default_factory=list)
     logConfiguration: Optional[Dict[str, Any]] = None
 
 
@@ -63,36 +64,6 @@ class SecurityGroup(BaseModel):
     description: str
 
 
-class Environment(BaseModel):
-    """
-    Infrastructure context owned by the platform team.
-    Describes the target AWS environment where applications are deployed.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    name: str = Field(description="Environment name (e.g., production, staging)")
-    vpc_id: str = Field(description="The AWS VPC ID")
-    public_subnets: List[str] = Field(description="List of public subnet IDs for ALBs")
-    private_subnets: List[str] = Field(
-        description="List of private subnet IDs for Fargate tasks"
-    )
-    ecs_cluster_arn: str = Field(description="The ARN of the ECS Cluster")
-    alb_arn: Optional[str] = Field(
-        default=None, description="The ARN of the shared Application Load Balancer"
-    )
-    alb_listener_arn: Optional[str] = Field(
-        default=None, description="The ARN of the HTTPS/HTTP listener on the ALB"
-    )
-    base_domain: Optional[str] = Field(
-        default=None,
-        description="The base domain for the environment (e.g., example.com)",
-    )
-    tags: Dict[str, str] = Field(
-        default_factory=dict, description="Default tags for all resources"
-    )
-
-
 class AWSResources(BaseModel):
     """
     A registry of the AWS resources our compiler supports.
@@ -105,3 +76,6 @@ class AWSResources(BaseModel):
     aws_cloudwatch_log_group: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     aws_lb_target_group: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     aws_lb_listener_rule: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_secretsmanager_secret: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_s3_bucket: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_iam_role_policy: Dict[str, Dict[str, Any]] = Field(default_factory=dict)

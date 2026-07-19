@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from schema.aws import AWSResources
+from models.aws import AWSResources
 
 
 class TerraformManifest(BaseModel):

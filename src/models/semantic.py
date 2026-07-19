@@ -20,6 +20,22 @@ class Service(BaseModel):
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
     )
+    secrets: list[str] = Field(
+        default_factory=list,
+        description="List of secret names required by this service",
+    )
+    storage: list[str] = Field(
+        default_factory=list,
+        description="List of storage volume names (buckets) required by this service",
+    )
+
+    env: dict[str, str] = Field(
+        default_factory=dict, description="Environment variables"
+    )
+    secrets: list[str] = Field(
+        default_factory=list,
+        description="List of secret names required by this service",
+    )
 
 
 class Relationship(BaseModel):

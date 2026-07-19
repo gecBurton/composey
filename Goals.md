@@ -209,7 +209,6 @@ The compiler must be deterministic.
 Equivalent Compose files must generate byte-identical Terraform.
 
 This implies:
-
 * sorted output
 * stable resource naming
 * canonical JSON
@@ -267,18 +266,6 @@ Smoke tests
 
 ---
 
-# Repository layout
-
-```
-compiler/
-environment/
-backend/
-terraform/
-model/
-tests/
-fixtures/
-```
-
 ---
 
 # Design principles
@@ -315,3 +302,8 @@ I think that's the principle that will keep your platform elegant as it grows. I
 
 That's a clean separation of concerns, and one that should scale well as you add more capabilities over time.
 Jot something down
+
+# techniques
+
+1. docker compose config --format json will be used to sanitize the raw docker compose
+2. 

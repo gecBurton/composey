@@ -1,5 +1,5 @@
 import os
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -31,6 +31,21 @@ class Dependency(BaseModel):
     required: bool = Field(description="required", default=True)
 
 
+class SecretDefinition(BaseModel):
+    source: str
+    target: Optional[str] = None
+    uid: Optional[str] = None
+    gid: Optional[str] = None
+    mode: Optional[int] = None
+
+
+class VolumeDefinition(BaseModel):
+    type: str
+    source: Optional[str] = None
+    target: str
+    read_only: bool = False
+
+
 class Service(BaseModel):
     """
     docker-compose service
@@ -45,6 +60,8 @@ class Service(BaseModel):
         description="environment", default_factory=dict
     )
     depends_on: dict[str, Dependency] = Field(default_factory=dict)
+    secrets: Optional[list[Union[str, SecretDefinition]]] = Field(default=None)
+    volumes: Optional[list[Union[str, VolumeDefinition]]] = Field(default=None)
 
 
 class Application(BaseModel):

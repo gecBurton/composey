@@ -1,27 +1,13 @@
-import json
-import subprocess
-
-from schema.compose import Application as DockerApplication
-from schema.semantic import (
+from models.compose import Application as DockerApplication
+from models.semantic import (
     Application as SemanticApplication,
 )
-from schema.semantic import (
+from models.semantic import (
     Relationship,
 )
-from schema.semantic import (
+from models.semantic import (
     Service as SemanticService,
 )
-
-
-def parse(file_path: str, level=2) -> DockerApplication:
-    result = subprocess.run(
-        ["docker", "compose", "-f", file_path, "config", "--format", "json"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    raw = json.loads(result.stdout)
-    return DockerApplication.model_validate(raw)
 
 
 def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
@@ -39,12 +25,36 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         # Handle services without ports safely
         primary_port = docker_service.ports[0].target if docker_service.ports else None
 
+        # Resolve secrets to names
+        secret_names = []
+        if docker_service.secrets:
+            for s in docker_service.secrets:
+                if isinstance(s, str):
+                    secret_names.append(s)
+                else:
+                    secret_names.append(s.source)
+
+        # Resolve volumes to names
+        storage_names = []
+        if docker_service.volumes:
+            for v in docker_service.volumes:
+                if isinstance(v, str):
+                    # handle simple string format source:target
+                    storage_names.append(v.split(":")[0])
+                elif v.source:
+                    storage_names.append(v.source)
+                else:
+                    # Skip anonymous volumes for S3 mapping for now
+                    continue
+
         semantic_services.append(
             SemanticService(
                 name=s_name,
                 image=docker_service.image or "placeholder",
                 port=primary_port,
                 env=docker_service.environment,
+                secrets=secret_names,
+                storage=storage_names,
             )
         )
 

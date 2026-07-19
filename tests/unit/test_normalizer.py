@@ -1,14 +1,14 @@
-from main import normalize
-from schema.compose import (
+from compiler.normalizer import normalize
+from models.compose import (
     Application as DockerApplication,
 )
-from schema.compose import (
+from models.compose import (
     Dependency,
 )
-from schema.compose import (
+from models.compose import (
     Port as DockerPort,
 )
-from schema.compose import (
+from models.compose import (
     Service as DockerService,
 )
 
