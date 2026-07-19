@@ -23,6 +23,7 @@ Composey provides a PaaS-like deployment experience where application engineers 
 - [x] **Public HTTP**: Automatic ALB ingress routing for services on port 80/443.
 - [x] **Secrets**: Automatic mapping of Compose `secrets` to AWS Secrets Manager.
 - [x] **Storage**: Automatic mapping of `volumes` to AWS S3 Buckets.
+- [x] **Managed Object Storage**: Automatically infers AWS S3 from `minio` images.
 - [x] **Managed Databases**: Automatically infers AWS RDS (Postgres/MySQL/MariaDB) from library images.
 - [x] **Managed Caching**: Automatically infers AWS ElastiCache (Redis) from library images.
 - [x] **Worker**: Support for background services without public ports.
@@ -85,6 +86,14 @@ If a service uses a standard database image (`postgres`, `mysql`, or `mariadb`),
 If a service uses a `redis` image, Composey will:
 1.  Provision an **AWS ElastiCache (Redis) Cluster**.
 2.  Automatically wire the endpoint into any application containers that depend on it.
+
+### 📦 Managed Object Storage (S3)
+If a service uses a `minio` image, Composey will:
+1.  **Substitute Infrastructure**: Provision an **AWS S3 Bucket** instead of a container.
+2.  **Smart Host Injection**: 
+    *   Variables containing `BUCKET` or `NAME` are updated to the **S3 Bucket ID**.
+    *   Variables containing `ENDPOINT` or `URL` are updated to the **S3 Bucket Domain Name**.
+3.  **Automated Permissions**: Any service that `depends_on` the Minio service is automatically granted full IAM permissions (`s3:*`) to the generated bucket.
 
 ---
 

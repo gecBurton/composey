@@ -1,0 +1,144 @@
+{
+  "provider": {
+    "aws": {
+      "region": "us-east-1"
+    }
+  },
+  "resource": {
+    "aws_ecs_service": {
+      "web_service": {
+        "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
+        "desired_count": 1,
+        "launch_type": "FARGATE",
+        "load_balancer": [
+          {
+            "container_name": "web",
+            "container_port": 5000,
+            "target_group_arn": "${aws_lb_target_group.web_tg.arn}"
+          }
+        ],
+        "name": "prod-flask-s3-web",
+        "network_configuration": {
+          "assign_public_ip": false,
+          "security_groups": [
+            "${aws_security_group.app_sg.id}"
+          ],
+          "subnets": [
+            "subnet-3",
+            "subnet-4"
+          ]
+        },
+        "task_definition": "${aws_ecs_task_definition.web_td.arn}"
+      }
+    },
+    "aws_ecs_task_definition": {
+      "web_td": {
+        "container_definitions": "[{\"name\": \"web\", \"image\": \"flask-app\", \"essential\": true, \"portMappings\": [{\"containerPort\": 5000, \"hostPort\": 5000, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"BUCKET_NAME\", \"value\": \"${aws_s3_bucket.blobs_bucket.id}\"}, {\"name\": \"S3_ENDPOINT\", \"value\": \"http://${aws_s3_bucket.blobs_bucket.bucket_domain_name}\"}], \"secrets\": []}]",
+        "cpu": "256",
+        "execution_role_arn": "${aws_iam_role.web_exec_role.arn}",
+        "family": "prod-flask-s3-web",
+        "memory": "512",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": [
+          "FARGATE"
+        ],
+        "task_role_arn": "${aws_iam_role.web_task_role.arn}"
+      }
+    },
+    "aws_iam_role": {
+      "web_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-flask-s3-web-exec-role"
+      },
+      "web_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-flask-s3-web-task-role"
+      }
+    },
+    "aws_iam_role_policy": {
+      "web_to_blobs_s3_policy": {
+        "name": "prod-flask-s3-web-blobs-s3-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.blobs_bucket.arn}\", \"${aws_s3_bucket.blobs_bucket.arn}/*\"]}]}",
+        "role": "${aws_iam_role.web_task_role.name}"
+      }
+    },
+    "aws_lb_listener_rule": {
+      "web_listener_rule": {
+        "action": [
+          {
+            "target_group_arn": "${aws_lb_target_group.web_tg.arn}",
+            "type": "forward"
+          }
+        ],
+        "condition": [
+          {
+            "path_pattern": {
+              "values": [
+                "/*"
+              ]
+            }
+          }
+        ],
+        "listener_arn": "arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456",
+        "priority": 100
+      }
+    },
+    "aws_lb_target_group": {
+      "web_tg": {
+        "health_check": {
+          "enabled": true,
+          "matcher": "200-399",
+          "path": "/"
+        },
+        "name": "prod-flask-s3-web-tg",
+        "port": 5000,
+        "protocol": "HTTP",
+        "target_type": "ip",
+        "vpc_id": "vpc-123"
+      }
+    },
+    "aws_s3_bucket": {
+      "blobs_bucket": {
+        "bucket": "prod-flask-s3-blobs",
+        "force_destroy": true
+      }
+    },
+    "aws_security_group": {
+      "app_sg": {
+        "description": "Security group for flask-s3 in prod",
+        "name": "prod-flask-s3-sg",
+        "vpc_id": "vpc-123"
+      }
+    },
+    "aws_security_group_rule": {
+      "alb_to_web_rule": {
+        "cidr_blocks": [
+          "0.0.0.0/0"
+        ],
+        "description": "Allow ALB to talk to web",
+        "from_port": 5000,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 5000,
+        "type": "ingress"
+      },
+      "web_to_blobs_rule": {
+        "description": "Allow web to talk to blobs",
+        "from_port": 9000,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "source_security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 9000,
+        "type": "ingress"
+      }
+    }
+  },
+  "terraform": {
+    "required_providers": {
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": "~> 5.0"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+services:
+  web:
+    image: flask-app
+    ports:
+      - "80:5000"
+    environment:
+      S3_ENDPOINT: http://blobs:9000
+      BUCKET_NAME: blobs
+    depends_on:
+      - blobs
+  blobs:
+    image: minio/minio
+    ports:
+      - "9000:9000"

@@ -70,6 +70,11 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
             for c in ["redis", "valkey"]
         ):
             capability = "cache"
+        # Storage detection
+        elif any(
+            image_lower.startswith(s) or f"/{s}" in image_lower for s in ["minio"]
+        ):
+            capability = "object-storage"
 
         # Extract x-composey size hint
         size = "small"

@@ -118,6 +118,15 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             )
             continue
 
+        if service.capability == "object-storage":
+            # Managed S3 Bucket (Minio substitution)
+            bucket_key = f"{service.name}_bucket"
+            resources.aws_s3_bucket[bucket_key] = S3Bucket(
+                bucket=get_name(service.name).lower().replace("_", "-")[:63],
+                force_destroy=True,
+            )
+            continue
+
         # Standard Container (ECS Fargate)
         # Create IAM Roles for the service
         task_role_key = f"{service.name}_task_role"
@@ -333,8 +342,9 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             if not server or server.capability == "container":
                 continue
 
-            # Server is a managed service (DB or Cache)
+            # Server is a managed service (DB, Cache, or S3)
             address = ""
+            bucket_id = ""
             if server.capability == "database":
                 db_key = f"{server.name}_db"
                 address = f"${{aws_db_instance.{db_key}.address}}"
@@ -343,11 +353,70 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 address = (
                     f"${{aws_elasticache_cluster.{cache_key}.cache_nodes[0].address}}"
                 )
+            elif server.capability == "object-storage":
+                bucket_key = f"{server.name}_bucket"
+                address = f"${{aws_s3_bucket.{bucket_key}.bucket_domain_name}}"
+                bucket_id = f"${{aws_s3_bucket.{bucket_key}.id}}"
 
-            # Replace any env vars that were pointing to the local name
+                # Also grant IAM permissions to the client service
+                policy_key = f"{service.name}_to_{server.name}_s3_policy"
+                resources.aws_iam_role_policy[policy_key] = IamRolePolicy(
+                    name=get_name(f"{service.name}-{server.name}-s3-policy"),
+                    role=f"${{aws_iam_role.{service.name}_task_role.name}}",
+                    policy=json.dumps(
+                        {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["s3:*"],
+                                    "Resource": [
+                                        f"${{aws_s3_bucket.{bucket_key}.arn}}",
+                                        f"${{aws_s3_bucket.{bucket_key}.arn}}/*",
+                                    ],
+                                }
+                            ],
+                        }
+                    ),
+                )
+
+            # Replace any env vars that contain the local name
+            # e.g. "http://minio:9000" -> "https://my-bucket.s3.amazonaws.com"
             for env_var in container["environment"]:
-                if env_var["value"] == server.name:
-                    env_var["value"] = address
+                val = env_var["value"]
+                name = env_var["name"].upper()
+
+                # Choose best replacement based on variable intent
+                replacement = address
+                if server.capability == "object-storage":
+                    if any(k in name for k in ["BUCKET", "NAME"]):
+                        replacement = bucket_id
+                    elif any(k in name for k in ["ENDPOINT", "URL", "HOST"]):
+                        # Keep protocol if present
+                        if val.startswith("https://"):
+                            replacement = f"https://{address}"
+                        else:
+                            replacement = f"http://{address}"
+
+                if val == server.name:
+                    env_var["value"] = replacement
+                elif (
+                    f"://{server.name}:" in val
+                    or f"://{server.name}/" in val
+                    or val.endswith(f"://{server.name}")
+                ):
+                    import re
+
+                    pattern = re.compile(rf"://{server.name}(:\d+)?")
+                    # If it's a URL-like string, we use the address-based replacement
+                    url_replacement = (
+                        f"https://{address}"
+                        if val.startswith("https")
+                        else f"http://{address}"
+                    )
+                    env_var["value"] = pattern.sub(
+                        f"://{url_replacement.split('://')[-1]}", val
+                    )
 
         task_def.container_definitions = json.dumps(container_defs)
 
