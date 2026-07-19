@@ -3,8 +3,18 @@ import json
 from ..models.aws import (
     AWSResources,
     ContainerDefinition,
+    DbInstance,
+    DbSubnetGroup,
     EcsService,
     EcsTaskDefinition,
+    ElastiCacheCluster,
+    ElastiCacheSubnetGroup,
+    IamRole,
+    IamRolePolicy,
+    LbListenerRule,
+    LbTargetGroup,
+    S3Bucket,
+    SecretsManagerSecret,
     SecurityGroup,
     SecurityGroupRule,
 )
@@ -32,67 +42,64 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         if service.capability == "database":
             # Managed RDS Instance
             engine = "postgres"
-            port = 5432
             if "mysql" in service.image.lower():
                 engine = "mysql"
-                port = 3306
             elif "mariadb" in service.image.lower():
                 engine = "mariadb"
-                port = 3306
 
             # 1. Create a secret for the database master password
             db_secret_key = f"{service.name}_db_password"
-            resources.aws_secretsmanager_secret[db_secret_key] = {
-                "name": get_name(f"{service.name}-db-password"),
-                "description": f"Master password for {service.name} RDS",
-            }
+            resources.aws_secretsmanager_secret[db_secret_key] = SecretsManagerSecret(
+                name=get_name(f"{service.name}-db-password"),
+                description=f"Master password for {service.name} RDS",
+            )
 
             sng_key = f"{service.name}_sng"
-            resources.aws_db_subnet_group[sng_key] = {
-                "name": get_name(f"{service.name}-sng"),
-                "subnet_ids": env.private_subnets,
-            }
+            resources.aws_db_subnet_group[sng_key] = DbSubnetGroup(
+                name=get_name(f"{service.name}-sng"),
+                subnet_ids=env.private_subnets,
+            )
 
             db_key = f"{service.name}_db"
-            resources.aws_db_instance[db_key] = {
-                "identifier": get_name(service.name),
-                "engine": engine,
-                "instance_class": "db.t3.micro",
-                "allocated_storage": 20,
-                "db_subnet_group_name": f"${{aws_db_subnet_group.{sng_key}.name}}",
-                "vpc_security_group_ids": [f"${{aws_security_group.{app_sg_key}.id}}"],
-                "skip_final_snapshot": True,
-                "publicly_accessible": False,
-                "username": "admin",
-                "password": f"${{aws_secretsmanager_secret.{db_secret_key}.id}}",  # Placeholder reference
-            }
+            resources.aws_db_instance[db_key] = DbInstance(
+                identifier=get_name(service.name),
+                engine=engine,
+                instance_class="db.t3.micro",
+                allocated_storage=20,
+                db_subnet_group_name=f"${{aws_db_subnet_group.{sng_key}.name}}",
+                vpc_security_group_ids=[f"${{aws_security_group.{app_sg_key}.id}}"],
+                skip_final_snapshot=True,
+                publicly_accessible=False,
+                username="admin",
+                password=f"${{aws_secretsmanager_secret.{db_secret_key}.id}}",
+            )
             continue
 
         if service.capability == "cache":
             # Managed ElastiCache (Redis)
             sng_key = f"{service.name}_sng"
-            resources.aws_elasticache_subnet_group[sng_key] = {
-                "name": get_name(f"{service.name}-sng"),
-                "subnet_ids": env.private_subnets,
-            }
+            resources.aws_elasticache_subnet_group[sng_key] = ElastiCacheSubnetGroup(
+                name=get_name(f"{service.name}-sng"),
+                subnet_ids=env.private_subnets,
+            )
 
             cache_key = f"{service.name}_cache"
-            resources.aws_elasticache_cluster[cache_key] = {
-                "cluster_id": get_name(service.name),
-                "engine": "redis",
-                "node_type": "cache.t3.micro",
-                "num_cache_nodes": 1,
-                "subnet_group_name": f"${{aws_elasticache_subnet_group.{sng_key}.name}}",
-                "security_group_ids": [f"${{aws_security_group.{app_sg_key}.id}}"],
-            }
+            resources.aws_elasticache_cluster[cache_key] = ElastiCacheCluster(
+                cluster_id=get_name(service.name),
+                engine="redis",
+                node_type="cache.t3.micro",
+                num_cache_nodes=1,
+                subnet_group_name=f"${{aws_elasticache_subnet_group.{sng_key}.name}}",
+                security_group_ids=[f"${{aws_security_group.{app_sg_key}.id}}"],
+            )
             continue
 
         # Standard Container (ECS Fargate)
         # Create IAM Roles for the service
         task_role_key = f"{service.name}_task_role"
-        resources.aws_iam_role[task_role_key] = {
-            "name": get_name(f"{service.name}-task-role"),
-            "assume_role_policy": json.dumps(
+        resources.aws_iam_role[task_role_key] = IamRole(
+            name=get_name(f"{service.name}-task-role"),
+            assume_role_policy=json.dumps(
                 {
                     "Version": "2012-10-17",
                     "Statement": [
@@ -104,12 +111,12 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     ],
                 }
             ),
-        }
+        )
 
         exec_role_key = f"{service.name}_exec_role"
-        resources.aws_iam_role[exec_role_key] = {
-            "name": get_name(f"{service.name}-exec-role"),
-            "assume_role_policy": json.dumps(
+        resources.aws_iam_role[exec_role_key] = IamRole(
+            name=get_name(f"{service.name}-exec-role"),
+            assume_role_policy=json.dumps(
                 {
                     "Version": "2012-10-17",
                     "Statement": [
@@ -121,25 +128,25 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     ],
                 }
             ),
-        }
+        )
 
         # Resolve storage to S3 buckets and IAM policies
         for bucket_name in service.storage:
             safe_id = "".join(c if c.isalnum() else "_" for c in bucket_name).strip("_")
             bucket_key = f"{service.name}_{safe_id}_bucket"
 
-            resources.aws_s3_bucket[bucket_key] = {
-                "bucket": get_name(f"{service.name}-{safe_id}")
+            resources.aws_s3_bucket[bucket_key] = S3Bucket(
+                bucket=get_name(f"{service.name}-{safe_id}")
                 .lower()
                 .replace("_", "-")[:63],
-                "force_destroy": True,
-            }
+                force_destroy=True,
+            )
 
             policy_key = f"{service.name}_{safe_id}_policy"
-            resources.aws_iam_role_policy[policy_key] = {
-                "name": get_name(f"{service.name}-{safe_id}-policy"),
-                "role": f"${{aws_iam_role.{task_role_key}.name}}",
-                "policy": json.dumps(
+            resources.aws_iam_role_policy[policy_key] = IamRolePolicy(
+                name=get_name(f"{service.name}-{safe_id}-policy"),
+                role=f"${{aws_iam_role.{task_role_key}.name}}",
+                policy=json.dumps(
                     {
                         "Version": "2012-10-17",
                         "Statement": [
@@ -154,16 +161,16 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                         ],
                     }
                 ),
-            }
+            )
 
         # Resolve secrets to AWS Secrets Manager references
         container_secrets = []
         for secret_name in service.secrets:
             secret_key = f"{service.name}_{secret_name}_secret"
-            resources.aws_secretsmanager_secret[secret_key] = {
-                "name": get_name(f"{service.name}-{secret_name}"),
-                "description": f"Secret {secret_name} for {app.name} service {service.name}",
-            }
+            resources.aws_secretsmanager_secret[secret_key] = SecretsManagerSecret(
+                name=get_name(f"{service.name}-{secret_name}"),
+                description=f"Secret {secret_name} for {app.name} service {service.name}",
+            )
             container_secrets.append(
                 {
                     "name": secret_name.upper().replace("-", "_"),
@@ -173,10 +180,10 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
 
             # Grant Exec Role access to read the secret
             secret_policy_key = f"{service.name}_{secret_name}_policy"
-            resources.aws_iam_role_policy[secret_policy_key] = {
-                "name": get_name(f"{service.name}-{secret_name}-policy"),
-                "role": f"${{aws_iam_role.{exec_role_key}.name}}",
-                "policy": json.dumps(
+            resources.aws_iam_role_policy[secret_policy_key] = IamRolePolicy(
+                name=get_name(f"{service.name}-{secret_name}-policy"),
+                role=f"${{aws_iam_role.{exec_role_key}.name}}",
+                policy=json.dumps(
                     {
                         "Version": "2012-10-17",
                         "Statement": [
@@ -190,7 +197,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                         ],
                     }
                 ),
-            }
+            )
 
         # Container Definition
         container = ContainerDefinition(
@@ -236,28 +243,28 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         # 4. Handle Public Ingress (ALB integration)
         if app.public_service == service.name and env.alb_arn:
             tg_key = f"{service.name}_tg"
-            resources.aws_lb_target_group[tg_key] = {
-                "name": get_name(f"{service.name}-tg"),
-                "port": service.port or 80,
-                "protocol": "HTTP",
-                "vpc_id": env.vpc_id,
-                "target_type": "ip",
-                "health_check": {"enabled": True, "path": "/", "matcher": "200-399"},
-            }
+            resources.aws_lb_target_group[tg_key] = LbTargetGroup(
+                name=get_name(f"{service.name}-tg"),
+                port=service.port or 80,
+                protocol="HTTP",
+                vpc_id=env.vpc_id,
+                target_type="ip",
+                health_check={"enabled": True, "path": "/", "matcher": "200-399"},
+            )
 
             if env.alb_listener_arn:
                 rule_key = f"{service.name}_listener_rule"
-                resources.aws_lb_listener_rule[rule_key] = {
-                    "listener_arn": env.alb_listener_arn,
-                    "priority": 100,
-                    "action": [
+                resources.aws_lb_listener_rule[rule_key] = LbListenerRule(
+                    listener_arn=env.alb_listener_arn,
+                    priority=100,
+                    action=[
                         {
                             "type": "forward",
                             "target_group_arn": f"${{aws_lb_target_group.{tg_key}.arn}}",
                         }
                     ],
-                    "condition": [{"path_pattern": {"values": ["/*"]}}],
-                }
+                    condition=[{"path_pattern": {"values": ["/*"]}}],
+                )
 
             ecs_service.load_balancer = [
                 {
