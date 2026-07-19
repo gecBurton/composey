@@ -12,7 +12,7 @@
         "engine": "postgres",
         "identifier": "prod-scaling-db",
         "instance_class": "db.t3.medium",
-        "password": "${aws_secretsmanager_secret.db_db_password.id}",
+        "password": "${random_password.db_password.result}",
         "publicly_accessible": false,
         "skip_final_snapshot": true,
         "username": "admin",
@@ -116,9 +116,15 @@
       }
     },
     "aws_secretsmanager_secret": {
-      "db_db_password": {
-        "description": "Master password for db RDS",
-        "name": "prod-scaling-db-db-password"
+      "db_db_secret": {
+        "description": "Credentials for db RDS",
+        "name": "prod-scaling-db-credentials"
+      }
+    },
+    "aws_secretsmanager_secret_version": {
+      "db_db_secret_v1": {
+        "secret_id": "${aws_secretsmanager_secret.db_db_secret.id}",
+        "secret_string": "{\"username\": \"admin\", \"password\": \"${random_password.db_password.result}\", \"engine\": \"postgres\"}"
       }
     },
     "aws_security_group": {
@@ -140,6 +146,12 @@
         "to_port": 80,
         "type": "ingress"
       }
+    },
+    "random_password": {
+      "db_password": {
+        "length": 20,
+        "special": false
+      }
     }
   },
   "terraform": {
@@ -147,6 +159,10 @@
       "aws": {
         "source": "hashicorp/aws",
         "version": "~> 5.0"
+      },
+      "random": {
+        "source": "hashicorp/random",
+        "version": "~> 3.6"
       }
     }
   }

@@ -13,8 +13,10 @@ from ..models.aws import (
     IamRolePolicy,
     LbListenerRule,
     LbTargetGroup,
+    RandomPassword,
     S3Bucket,
     SecretsManagerSecret,
+    SecretsManagerSecretVersion,
     SecurityGroup,
     SecurityGroupRule,
 )
@@ -55,11 +57,29 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             elif "mariadb" in service.image.lower():
                 engine = "mariadb"
 
-            # 1. Create a secret for the database master password
-            db_secret_key = f"{service.name}_db_password"
+            # 1. Create a random master password
+            password_key = f"{service.name}_password"
+            resources.random_password[password_key] = RandomPassword(length=20)
+
+            # 2. Store credentials in Secrets Manager
+            db_secret_key = f"{service.name}_db_secret"
             resources.aws_secretsmanager_secret[db_secret_key] = SecretsManagerSecret(
-                name=get_name(f"{service.name}-db-password"),
-                description=f"Master password for {service.name} RDS",
+                name=get_name(f"{service.name}-credentials"),
+                description=f"Credentials for {service.name} RDS",
+            )
+
+            # 3. Create the secret version (Initial credentials)
+            resources.aws_secretsmanager_secret_version[f"{db_secret_key}_v1"] = (
+                SecretsManagerSecretVersion(
+                    secret_id=f"${{aws_secretsmanager_secret.{db_secret_key}.id}}",
+                    secret_string=json.dumps(
+                        {
+                            "username": "admin",
+                            "password": f"${{random_password.{password_key}.result}}",
+                            "engine": engine,
+                        }
+                    ),
+                )
             )
 
             sng_key = f"{service.name}_sng"
@@ -88,7 +108,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 skip_final_snapshot=True,
                 publicly_accessible=False,
                 username="admin",
-                password=f"${{aws_secretsmanager_secret.{db_secret_key}.id}}",
+                password=f"${{random_password.{password_key}.result}}",
             )
             continue
 
@@ -336,6 +356,8 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         container_defs = json.loads(task_def.container_definitions)
         container = container_defs[0]
 
+        exec_role_key = f"{service.name}_exec_role"
+
         # Check all relationships where this service is the client
         for rel in [r for r in app.relationships if r.client == service.name]:
             server = next((s for s in app.services if s.name == rel.server), None)
@@ -347,7 +369,44 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             bucket_id = ""
             if server.capability == "database":
                 db_key = f"{server.name}_db"
+                db_secret_key = f"{server.name}_db_secret"
                 address = f"${{aws_db_instance.{db_key}.address}}"
+
+                # Inject credentials from the RDS secret
+                container["secrets"].extend(
+                    [
+                        {
+                            "name": "DB_PASSWORD",
+                            "valueFrom": f"${{aws_secretsmanager_secret.{db_secret_key}.arn}}:password::",
+                        },
+                        {
+                            "name": "DB_USERNAME",
+                            "valueFrom": f"${{aws_secretsmanager_secret.{db_secret_key}.arn}}:username::",
+                        },
+                    ]
+                )
+
+                # Grant Exec Role access to the RDS secret
+                rds_secret_policy_key = f"{service.name}_to_{server.name}_rds_secret"
+                resources.aws_iam_role_policy[rds_secret_policy_key] = IamRolePolicy(
+                    name=get_name(f"{service.name}-{server.name}-rds-secret"),
+                    role=f"${{aws_iam_role.{exec_role_key}.name}}",
+                    policy=json.dumps(
+                        {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": ["secretsmanager:GetSecretValue"],
+                                    "Resource": [
+                                        f"${{aws_secretsmanager_secret.{db_secret_key}.arn}}"
+                                    ],
+                                }
+                            ],
+                        }
+                    ),
+                )
+
             elif server.capability == "cache":
                 cache_key = f"{server.name}_cache"
                 address = (
@@ -381,7 +440,6 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 )
 
             # Replace any env vars that contain the local name
-            # e.g. "http://minio:9000" -> "https://my-bucket.s3.amazonaws.com"
             for env_var in container["environment"]:
                 val = env_var["value"]
                 name = env_var["name"].upper()

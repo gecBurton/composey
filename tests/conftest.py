@@ -52,11 +52,12 @@ def terraform_base():
 
     base_dir = tempfile.mkdtemp()
 
-    # Create a dummy manifest just to init the provider
+    # Create a dummy manifest just to init the providers
     dummy_manifest = {
         "terraform": {
             "required_providers": {
-                "aws": {"source": "hashicorp/aws", "version": "~> 5.0"}
+                "aws": {"source": "hashicorp/aws", "version": "~> 5.0"},
+                "random": {"source": "hashicorp/random", "version": "~> 3.6"},
             }
         }
     }
