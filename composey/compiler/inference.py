@@ -27,8 +27,67 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         description=f"Security group for {app.name} in {env.name}",
     )
 
-    # 2. Map each Semantic Service to ECS Fargate resources
+    # 2. Map each Semantic Service to AWS resources
     for service in app.services:
+        if service.capability == "database":
+            # Managed RDS Instance
+            engine = "postgres"
+            port = 5432
+            if "mysql" in service.image.lower():
+                engine = "mysql"
+                port = 3306
+            elif "mariadb" in service.image.lower():
+                engine = "mariadb"
+                port = 3306
+
+            # 1. Create a secret for the database master password
+            db_secret_key = f"{service.name}_db_password"
+            resources.aws_secretsmanager_secret[db_secret_key] = {
+                "name": get_name(f"{service.name}-db-password"),
+                "description": f"Master password for {service.name} RDS",
+            }
+
+            sng_key = f"{service.name}_sng"
+            resources.aws_db_subnet_group[sng_key] = {
+                "name": get_name(f"{service.name}-sng"),
+                "subnet_ids": env.private_subnets,
+            }
+
+            db_key = f"{service.name}_db"
+            resources.aws_db_instance[db_key] = {
+                "identifier": get_name(service.name),
+                "engine": engine,
+                "instance_class": "db.t3.micro",
+                "allocated_storage": 20,
+                "db_subnet_group_name": f"${{aws_db_subnet_group.{sng_key}.name}}",
+                "vpc_security_group_ids": [f"${{aws_security_group.{app_sg_key}.id}}"],
+                "skip_final_snapshot": True,
+                "publicly_accessible": False,
+                "username": "admin",
+                "password": f"${{aws_secretsmanager_secret.{db_secret_key}.id}}",  # Placeholder reference
+            }
+            continue
+
+        if service.capability == "cache":
+            # Managed ElastiCache (Redis)
+            sng_key = f"{service.name}_sng"
+            resources.aws_elasticache_subnet_group[sng_key] = {
+                "name": get_name(f"{service.name}-sng"),
+                "subnet_ids": env.private_subnets,
+            }
+
+            cache_key = f"{service.name}_cache"
+            resources.aws_elasticache_cluster[cache_key] = {
+                "cluster_id": get_name(service.name),
+                "engine": "redis",
+                "node_type": "cache.t3.micro",
+                "num_cache_nodes": 1,
+                "subnet_group_name": f"${{aws_elasticache_subnet_group.{sng_key}.name}}",
+                "security_group_ids": [f"${{aws_security_group.{app_sg_key}.id}}"],
+            }
+            continue
+
+        # Standard Container (ECS Fargate)
         # Create IAM Roles for the service
         task_role_key = f"{service.name}_task_role"
         resources.aws_iam_role[task_role_key] = {
@@ -221,13 +280,68 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
 
         resources.aws_ecs_service[service_key] = ecs_service
 
-    # 3. Infer Security Group Rules from Relationships
+    # 3. Dynamic Link Injection (Service Discovery)
+    # If a service depends on a managed capability, inject the connection details
+    for service in app.services:
+        if service.capability != "container":
+            continue
+
+        service_key = f"{service.name}_service"
+        # We need to find the ECS task definition for this service
+        task_def_key = f"{service.name}_td"
+        if task_def_key not in resources.aws_ecs_task_definition:
+            continue
+
+        task_def = resources.aws_ecs_task_definition[task_def_key]
+        container_defs = json.loads(task_def.container_definitions)
+        container = container_defs[0]
+
+        # Check all relationships where this service is the client
+        for rel in [r for r in app.relationships if r.client == service.name]:
+            server = next((s for s in app.services if s.name == rel.server), None)
+            if not server or server.capability == "container":
+                continue
+
+            # Server is a managed service (DB or Cache)
+            address = ""
+            if server.capability == "database":
+                db_key = f"{server.name}_db"
+                address = f"${{aws_db_instance.{db_key}.address}}"
+            elif server.capability == "cache":
+                cache_key = f"{server.name}_cache"
+                address = (
+                    f"${{aws_elasticache_cluster.{cache_key}.cache_nodes[0].address}}"
+                )
+
+            # Replace any env vars that were pointing to the local name
+            for env_var in container["environment"]:
+                if env_var["value"] == server.name:
+                    env_var["value"] = address
+
+        task_def.container_definitions = json.dumps(container_defs)
+
+    # 4. Infer Security Group Rules from Relationships
     for rel in app.relationships:
         rule_key = f"{rel.client}_to_{rel.server}_rule"
         server_service = next((s for s in app.services if s.name == rel.server), None)
-        port = rel.port or (
-            server_service.port if server_service and server_service.port else 80
-        )
+
+        # Determine port based on capability if not explicitly provided
+        default_port = 80
+        if server_service:
+            if server_service.capability == "database":
+                default_port = (
+                    3306
+                    if "mysql" in server_service.image.lower()
+                    or "mariadb" in server_service.image.lower()
+                    else 5432
+                )
+            elif server_service.capability == "cache":
+                default_port = 6379
+            elif server_service.port:
+                default_port = server_service.port
+
+        port = rel.port or default_port
+
         resources.aws_security_group_rule[rule_key] = SecurityGroupRule(
             type="ingress",
             from_port=port,

@@ -1,17 +1,24 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+Capability = Literal["container", "database", "cache", "queue"]
 
 
 class Service(BaseModel):
     """
-    A logical unit of compute. Cloud-agnostic representation of a containerized process.
+    A logical unit of compute or a managed capability.
+    Cloud-agnostic representation of a process or stateful service.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(description="Unique identifier for the service")
     image: str = Field(description="Docker image URI")
+    capability: Capability = Field(
+        default="container",
+        description="The nature of the service (Standard container or managed cloud service)",
+    )
     cpu: int = Field(default=256, description="CPU units (1024 = 1 vCPU)")
     memory: int = Field(default=512, description="Memory in MiB")
     port: Optional[int] = Field(
@@ -27,14 +34,6 @@ class Service(BaseModel):
     storage: list[str] = Field(
         default_factory=list,
         description="List of storage volume names (buckets) required by this service",
-    )
-
-    env: dict[str, str] = Field(
-        default_factory=dict, description="Environment variables"
-    )
-    secrets: list[str] = Field(
-        default_factory=list,
-        description="List of secret names required by this service",
     )
 
 

@@ -80,3 +80,9 @@ class AWSResources(BaseModel):
     aws_s3_bucket: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     aws_iam_role: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     aws_iam_role_policy: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_db_instance: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_elasticache_cluster: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_db_subnet_group: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    aws_elasticache_subnet_group: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict
+    )

@@ -6,24 +6,6 @@
   },
   "resource": {
     "aws_ecs_service": {
-      "redis_service": {
-        "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
-        "desired_count": 1,
-        "launch_type": "FARGATE",
-        "load_balancer": [],
-        "name": "prod-flask-redis-redis",
-        "network_configuration": {
-          "assign_public_ip": false,
-          "security_groups": [
-            "${aws_security_group.app_sg.id}"
-          ],
-          "subnets": [
-            "subnet-3",
-            "subnet-4"
-          ]
-        },
-        "task_definition": "${aws_ecs_task_definition.redis_td.arn}"
-      },
       "web_service": {
         "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
         "desired_count": 1,
@@ -50,20 +32,8 @@
       }
     },
     "aws_ecs_task_definition": {
-      "redis_td": {
-        "container_definitions": "[{\"name\": \"redis\", \"image\": \"redislabs/redismod\", \"essential\": true, \"portMappings\": [{\"containerPort\": 6379, \"hostPort\": 6379, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
-        "cpu": "256",
-        "execution_role_arn": "${aws_iam_role.redis_exec_role.arn}",
-        "family": "prod-flask-redis-redis",
-        "memory": "512",
-        "network_mode": "awsvpc",
-        "requires_compatibilities": [
-          "FARGATE"
-        ],
-        "task_role_arn": "${aws_iam_role.redis_task_role.arn}"
-      },
       "web_td": {
-        "container_definitions": "[{\"name\": \"web\", \"image\": \"flask-redis-web:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
+        "container_definitions": "[{\"name\": \"web\", \"image\": \"flask-redis-web:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"REDIS_HOST\", \"value\": \"${aws_elasticache_cluster.redis_cache.cache_nodes[0].address}\"}], \"secrets\": []}]",
         "cpu": "256",
         "execution_role_arn": "${aws_iam_role.web_exec_role.arn}",
         "family": "prod-flask-redis-web",
@@ -75,15 +45,28 @@
         "task_role_arn": "${aws_iam_role.web_task_role.arn}"
       }
     },
+    "aws_elasticache_cluster": {
+      "redis_cache": {
+        "cluster_id": "prod-flask-redis-redis",
+        "engine": "redis",
+        "node_type": "cache.t3.micro",
+        "num_cache_nodes": 1,
+        "security_group_ids": [
+          "${aws_security_group.app_sg.id}"
+        ],
+        "subnet_group_name": "${aws_elasticache_subnet_group.redis_sng.name}"
+      }
+    },
+    "aws_elasticache_subnet_group": {
+      "redis_sng": {
+        "name": "prod-flask-redis-redis-sng",
+        "subnet_ids": [
+          "subnet-3",
+          "subnet-4"
+        ]
+      }
+    },
     "aws_iam_role": {
-      "redis_exec_role": {
-        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-redis-redis-exec-role"
-      },
-      "redis_task_role": {
-        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-flask-redis-redis-task-role"
-      },
       "web_exec_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
         "name": "prod-flask-redis-web-exec-role"
