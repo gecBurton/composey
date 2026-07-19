@@ -1,0 +1,11 @@
+services:
+  web:
+    image: nginx
+    ports:
+      - "80:80"
+    x-composey:
+      size: large
+  db:
+    image: postgres
+    x-composey:
+      size: medium

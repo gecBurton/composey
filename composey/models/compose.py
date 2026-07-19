@@ -1,7 +1,7 @@
 import os
 from typing import Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Port(BaseModel):
@@ -51,7 +51,7 @@ class Service(BaseModel):
     docker-compose service
     """
 
-    model_config = {"extra": "ignore"}
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
     build: Optional[Build] = Field(description="build", default=None)
     ports: Optional[list[Port]] = Field(description="ports", default=None)
@@ -62,6 +62,10 @@ class Service(BaseModel):
     depends_on: dict[str, Dependency] = Field(default_factory=dict)
     secrets: Optional[list[Union[str, SecretDefinition]]] = Field(default=None)
     volumes: Optional[list[Union[str, VolumeDefinition]]] = Field(default=None)
+
+    @property
+    def x_composey(self) -> dict:
+        return (self.model_extra or {}).get("x-composey") or {}
 
 
 class Application(BaseModel):

@@ -19,6 +19,9 @@ class Service(BaseModel):
         default="container",
         description="The nature of the service (Standard container or managed cloud service)",
     )
+    size: Literal["small", "medium", "large"] = Field(
+        default="small", description="The relative size of the compute resource"
+    )
     cpu: int = Field(default=256, description="CPU units (1024 = 1 vCPU)")
     memory: int = Field(default=512, description="Memory in MiB")
     port: Optional[int] = Field(

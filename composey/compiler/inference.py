@@ -39,6 +39,14 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
 
     # 2. Map each Semantic Service to AWS resources
     for service in app.services:
+        # Define compute sizes (Fargate units)
+        size_map = {
+            "small": {"cpu": 256, "memory": 512},
+            "medium": {"cpu": 1024, "memory": 2048},
+            "large": {"cpu": 4096, "memory": 8192},
+        }
+        compute = size_map.get(service.size, size_map["small"])
+
         if service.capability == "database":
             # Managed RDS Instance
             engine = "postgres"
@@ -60,11 +68,20 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 subnet_ids=env.private_subnets,
             )
 
+            # Map x-composey size to RDS instance classes
+            db_instance_classes = {
+                "small": "db.t3.micro",
+                "medium": "db.t3.medium",
+                "large": "db.m5.large",
+            }
+
             db_key = f"{service.name}_db"
             resources.aws_db_instance[db_key] = DbInstance(
                 identifier=get_name(service.name),
                 engine=engine,
-                instance_class="db.t3.micro",
+                instance_class=db_instance_classes.get(
+                    service.size, db_instance_classes["small"]
+                ),
                 allocated_storage=20,
                 db_subnet_group_name=f"${{aws_db_subnet_group.{sng_key}.name}}",
                 vpc_security_group_ids=[f"${{aws_security_group.{app_sg_key}.id}}"],
@@ -83,11 +100,18 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 subnet_ids=env.private_subnets,
             )
 
+            # Map size to ElastiCache node types
+            cache_node_types = {
+                "small": "cache.t3.micro",
+                "medium": "cache.t3.medium",
+                "large": "cache.m5.large",
+            }
+
             cache_key = f"{service.name}_cache"
             resources.aws_elasticache_cluster[cache_key] = ElastiCacheCluster(
                 cluster_id=get_name(service.name),
                 engine="redis",
-                node_type="cache.t3.micro",
+                node_type=cache_node_types.get(service.size, cache_node_types["small"]),
                 num_cache_nodes=1,
                 subnet_group_name=f"${{aws_elasticache_subnet_group.{sng_key}.name}}",
                 security_group_ids=[f"${{aws_security_group.{app_sg_key}.id}}"],
@@ -220,8 +244,8 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         task_def_key = f"{service.name}_td"
         resources.aws_ecs_task_definition[task_def_key] = EcsTaskDefinition(
             family=get_name(service.name),
-            cpu=str(service.cpu),
-            memory=str(service.memory),
+            cpu=str(compute["cpu"]),
+            memory=str(compute["memory"]),
             container_definitions=json.dumps([container.model_dump(exclude_none=True)]),
             execution_role_arn=f"${{aws_iam_role.{exec_role_key}.arn}}",
             task_role_arn=f"${{aws_iam_role.{task_role_key}.arn}}",
