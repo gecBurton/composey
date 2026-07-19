@@ -1,10 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "composey"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
     "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
+    "typer>=0.27.0",
 ]
+
+[project.scripts]
+composey = "composey.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["composey"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [
@@ -12,6 +27,3 @@ dev = [
     "requests>=2.34.2",
     "ruff>=0.15.22",
 ]
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]
