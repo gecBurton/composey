@@ -1,6 +1,10 @@
 {
+  "provider": {
+    "aws": {
+      "region": "us-east-1"
+    }
+  },
   "resource": {
-    "aws_cloudwatch_log_group": {},
     "aws_ecs_service": {
       "backend_service": {
         "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
@@ -99,34 +103,34 @@
       }
     },
     "aws_iam_role_policy": {
-      "backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package-lock.json_policy": {
-        "name": "prod-flask-backend-/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package-lock.json-policy",
-        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package-lock.json_bucket.arn}\", \"${aws_s3_bucket.backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package-lock.json_bucket.arn}/*\"]}]}",
+      "backend_back_notused_policy": {
+        "name": "prod-flask-backend-back_notused-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_back_notused_bucket.arn}\", \"${aws_s3_bucket.backend_back_notused_bucket.arn}/*\"]}]}",
         "role": "execution_role_placeholder"
       },
-      "backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package.json_policy": {
-        "name": "prod-flask-backend-/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package.json-policy",
-        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package.json_bucket.arn}\", \"${aws_s3_bucket.backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package.json_bucket.arn}/*\"]}]}",
+      "backend_package_json_policy": {
+        "name": "prod-flask-backend-package_json-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_package_json_bucket.arn}\", \"${aws_s3_bucket.backend_package_json_bucket.arn}/*\"]}]}",
         "role": "execution_role_placeholder"
       },
-      "backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/src_policy": {
-        "name": "prod-flask-backend-/Users/GBurton/PycharmProjects/composey/examples/flask/backend/src-policy",
-        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/src_bucket.arn}\", \"${aws_s3_bucket.backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/src_bucket.arn}/*\"]}]}",
+      "backend_package_lock_json_policy": {
+        "name": "prod-flask-backend-package_lock_json-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_package_lock_json_bucket.arn}\", \"${aws_s3_bucket.backend_package_lock_json_bucket.arn}/*\"]}]}",
         "role": "execution_role_placeholder"
       },
-      "backend_back-notused_policy": {
-        "name": "prod-flask-backend-back-notused-policy",
-        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_back-notused_bucket.arn}\", \"${aws_s3_bucket.backend_back-notused_bucket.arn}/*\"]}]}",
+      "backend_src_policy": {
+        "name": "prod-flask-backend-src-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.backend_src_bucket.arn}\", \"${aws_s3_bucket.backend_src_bucket.arn}/*\"]}]}",
         "role": "execution_role_placeholder"
       },
-      "db_db-data_policy": {
-        "name": "prod-flask-db-db-data-policy",
-        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.db_db-data_bucket.arn}\", \"${aws_s3_bucket.db_db-data_bucket.arn}/*\"]}]}",
+      "db_db_data_policy": {
+        "name": "prod-flask-db-db_data-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.db_db_data_bucket.arn}\", \"${aws_s3_bucket.db_db_data_bucket.arn}/*\"]}]}",
         "role": "execution_role_placeholder"
       },
-      "frontend_/Users/GBurton/PycharmProjects/composey/examples/flask/frontend/src_policy": {
-        "name": "prod-flask-frontend-/Users/GBurton/PycharmProjects/composey/examples/flask/frontend/src-policy",
-        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.frontend_/Users/GBurton/PycharmProjects/composey/examples/flask/frontend/src_bucket.arn}\", \"${aws_s3_bucket.frontend_/Users/GBurton/PycharmProjects/composey/examples/flask/frontend/src_bucket.arn}/*\"]}]}",
+      "frontend_src_policy": {
+        "name": "prod-flask-frontend-src-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.frontend_src_bucket.arn}\", \"${aws_s3_bucket.frontend_src_bucket.arn}/*\"]}]}",
         "role": "execution_role_placeholder"
       }
     },
@@ -166,28 +170,28 @@
       }
     },
     "aws_s3_bucket": {
-      "backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package-lock.json_bucket": {
-        "bucket": "prod-flask-backend-/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package-lock.json",
-        "force_destroy": true
-      },
-      "backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package.json_bucket": {
-        "bucket": "prod-flask-backend-/Users/GBurton/PycharmProjects/composey/examples/flask/backend/package.json",
-        "force_destroy": true
-      },
-      "backend_/Users/GBurton/PycharmProjects/composey/examples/flask/backend/src_bucket": {
-        "bucket": "prod-flask-backend-/Users/GBurton/PycharmProjects/composey/examples/flask/backend/src",
-        "force_destroy": true
-      },
-      "backend_back-notused_bucket": {
+      "backend_back_notused_bucket": {
         "bucket": "prod-flask-backend-back-notused",
         "force_destroy": true
       },
-      "db_db-data_bucket": {
+      "backend_package_json_bucket": {
+        "bucket": "prod-flask-backend-package-json",
+        "force_destroy": true
+      },
+      "backend_package_lock_json_bucket": {
+        "bucket": "prod-flask-backend-package-lock-json",
+        "force_destroy": true
+      },
+      "backend_src_bucket": {
+        "bucket": "prod-flask-backend-src",
+        "force_destroy": true
+      },
+      "db_db_data_bucket": {
         "bucket": "prod-flask-db-db-data",
         "force_destroy": true
       },
-      "frontend_/Users/GBurton/PycharmProjects/composey/examples/flask/frontend/src_bucket": {
-        "bucket": "prod-flask-frontend-/Users/GBurton/PycharmProjects/composey/examples/flask/frontend/src",
+      "frontend_src_bucket": {
+        "bucket": "prod-flask-frontend-src",
         "force_destroy": true
       }
     },
@@ -237,6 +241,14 @@
         "source_security_group_id": "${aws_security_group.app_sg.id}",
         "to_port": 80,
         "type": "ingress"
+      }
+    }
+  },
+  "terraform": {
+    "required_providers": {
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": "~> 5.0"
       }
     }
   }

@@ -1,6 +1,10 @@
 {
+  "provider": {
+    "aws": {
+      "region": "us-east-1"
+    }
+  },
   "resource": {
-    "aws_cloudwatch_log_group": {},
     "aws_ecs_service": {
       "backend_service": {
         "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
@@ -98,7 +102,6 @@
         ]
       }
     },
-    "aws_iam_role_policy": {},
     "aws_lb_listener_rule": {
       "proxy_listener_rule": {
         "action": [
@@ -134,8 +137,6 @@
         "vpc_id": "vpc-123"
       }
     },
-    "aws_s3_bucket": {},
-    "aws_secretsmanager_secret": {},
     "aws_security_group": {
       "app_sg": {
         "description": "Security group for nginx-flask-mysql in prod",
@@ -172,6 +173,14 @@
         "source_security_group_id": "${aws_security_group.app_sg.id}",
         "to_port": 8000,
         "type": "ingress"
+      }
+    }
+  },
+  "terraform": {
+    "required_providers": {
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": "~> 5.0"
       }
     }
   }

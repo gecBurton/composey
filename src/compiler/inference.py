@@ -31,15 +31,22 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
     for service in app.services:
         # Resolve storage to S3 buckets and IAM policies
         for bucket_name in service.storage:
-            bucket_key = f"{service.name}_{bucket_name}_bucket"
+            # Sanitize for Terraform identifier (alphanumeric and underscore)
+            # Remove characters like / or . which often appear in path-based volume names
+            safe_id = "".join(c if c.isalnum() else "_" for c in bucket_name).strip("_")
+            bucket_key = f"{service.name}_{safe_id}_bucket"
+
             resources.aws_s3_bucket[bucket_key] = {
-                "bucket": get_name(f"{service.name}-{bucket_name}"),
+                # S3 bucket name: lowercase, alphanumeric and hyphens only
+                "bucket": get_name(f"{service.name}-{safe_id}")
+                .lower()
+                .replace("_", "-")[:63],
                 "force_destroy": True,
             }
 
-            policy_key = f"{service.name}_{bucket_name}_policy"
+            policy_key = f"{service.name}_{safe_id}_policy"
             resources.aws_iam_role_policy[policy_key] = {
-                "name": get_name(f"{service.name}-{bucket_name}-policy"),
+                "name": get_name(f"{service.name}-{safe_id}-policy"),
                 "role": "execution_role_placeholder",
                 "policy": json.dumps(
                     {

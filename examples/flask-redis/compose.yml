@@ -1,0 +1,12 @@
+# Adapted from https://github.com/docker/awesome-compose/tree/master/flask-redis
+services:
+  redis:
+    image: redislabs/redismod
+    ports:
+      - '6379:6379'
+  web:
+    image: flask-redis-web:latest # Replaced build with image
+    ports:
+      - '80:8000' # Map host 80 to container 8000 for public ingress detection
+    depends_on:
+      - redis

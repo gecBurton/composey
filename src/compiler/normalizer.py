@@ -1,3 +1,5 @@
+import os
+
 from models.compose import Application as DockerApplication
 from models.semantic import (
     Application as SemanticApplication,
@@ -38,14 +40,19 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         storage_names = []
         if docker_service.volumes:
             for v in docker_service.volumes:
+                source = None
                 if isinstance(v, str):
                     # handle simple string format source:target
-                    storage_names.append(v.split(":")[0])
+                    source = v.split(":")[0]
                 elif v.source:
-                    storage_names.append(v.source)
-                else:
-                    # Skip anonymous volumes for S3 mapping for now
-                    continue
+                    source = v.source
+
+                if source:
+                    # If it's an absolute path, only use the filename/basename
+                    # This prevents local workstation paths from leaking into TF
+                    if os.path.isabs(source):
+                        source = os.path.basename(source)
+                    storage_names.append(source)
 
         semantic_services.append(
             SemanticService(
