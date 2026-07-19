@@ -5,6 +5,31 @@
     }
   },
   "resource": {
+    "aws_db_instance": {
+      "db_db": {
+        "allocated_storage": 20,
+        "db_subnet_group_name": "${aws_db_subnet_group.db_sng.name}",
+        "engine": "mariadb",
+        "identifier": "prod-nginx-flask-mysql-db",
+        "instance_class": "db.t3.micro",
+        "password": "${aws_secretsmanager_secret.db_db_password.id}",
+        "publicly_accessible": false,
+        "skip_final_snapshot": true,
+        "username": "admin",
+        "vpc_security_group_ids": [
+          "${aws_security_group.app_sg.id}"
+        ]
+      }
+    },
+    "aws_db_subnet_group": {
+      "db_sng": {
+        "name": "prod-nginx-flask-mysql-db-sng",
+        "subnet_ids": [
+          "subnet-3",
+          "subnet-4"
+        ]
+      }
+    },
     "aws_ecs_service": {
       "backend_service": {
         "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
@@ -23,24 +48,6 @@
           ]
         },
         "task_definition": "${aws_ecs_task_definition.backend_td.arn}"
-      },
-      "db_service": {
-        "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
-        "desired_count": 1,
-        "launch_type": "FARGATE",
-        "load_balancer": [],
-        "name": "prod-nginx-flask-mysql-db",
-        "network_configuration": {
-          "assign_public_ip": false,
-          "security_groups": [
-            "${aws_security_group.app_sg.id}"
-          ],
-          "subnets": [
-            "subnet-3",
-            "subnet-4"
-          ]
-        },
-        "task_definition": "${aws_ecs_task_definition.db_td.arn}"
       },
       "proxy_service": {
         "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
@@ -69,7 +76,7 @@
     },
     "aws_ecs_task_definition": {
       "backend_td": {
-        "container_definitions": "[{\"name\": \"backend\", \"image\": \"flask-backend:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
+        "container_definitions": "[{\"name\": \"backend\", \"image\": \"flask-backend:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"DATABASE_HOST\", \"value\": \"${aws_db_instance.db_db.address}\"}], \"secrets\": []}]",
         "cpu": "256",
         "execution_role_arn": "${aws_iam_role.backend_exec_role.arn}",
         "family": "prod-nginx-flask-mysql-backend",
@@ -79,18 +86,6 @@
           "FARGATE"
         ],
         "task_role_arn": "${aws_iam_role.backend_task_role.arn}"
-      },
-      "db_td": {
-        "container_definitions": "[{\"name\": \"db\", \"image\": \"mariadb:10-focal\", \"essential\": true, \"portMappings\": [], \"environment\": [{\"name\": \"MYSQL_DATABASE\", \"value\": \"example\"}], \"secrets\": []}]",
-        "cpu": "256",
-        "execution_role_arn": "${aws_iam_role.db_exec_role.arn}",
-        "family": "prod-nginx-flask-mysql-db",
-        "memory": "512",
-        "network_mode": "awsvpc",
-        "requires_compatibilities": [
-          "FARGATE"
-        ],
-        "task_role_arn": "${aws_iam_role.db_task_role.arn}"
       },
       "proxy_td": {
         "container_definitions": "[{\"name\": \"proxy\", \"image\": \"nginx-proxy:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
@@ -113,14 +108,6 @@
       "backend_task_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
         "name": "prod-nginx-flask-mysql-backend-task-role"
-      },
-      "db_exec_role": {
-        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-nginx-flask-mysql-db-exec-role"
-      },
-      "db_task_role": {
-        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-nginx-flask-mysql-db-task-role"
       },
       "proxy_exec_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
@@ -166,6 +153,12 @@
         "vpc_id": "vpc-123"
       }
     },
+    "aws_secretsmanager_secret": {
+      "db_db_password": {
+        "description": "Master password for db RDS",
+        "name": "prod-nginx-flask-mysql-db-db-password"
+      }
+    },
     "aws_security_group": {
       "app_sg": {
         "description": "Security group for nginx-flask-mysql in prod",
@@ -187,11 +180,11 @@
       },
       "backend_to_db_rule": {
         "description": "Allow backend to talk to db",
-        "from_port": 80,
+        "from_port": 3306,
         "protocol": "tcp",
         "security_group_id": "${aws_security_group.app_sg.id}",
         "source_security_group_id": "${aws_security_group.app_sg.id}",
-        "to_port": 80,
+        "to_port": 3306,
         "type": "ingress"
       },
       "proxy_to_backend_rule": {

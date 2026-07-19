@@ -5,8 +5,10 @@ services:
     ports:
       - '6379:6379'
   web:
-    image: flask-redis-web:latest # Replaced build with image
+    image: flask-redis-web:latest
     ports:
-      - '80:8000' # Map host 80 to container 8000 for public ingress detection
+      - '80:8000'
+    environment:
+      REDIS_HOST: redis
     depends_on:
       - redis

@@ -12,16 +12,18 @@ services:
       - 3306
 
   backend:
-    image: flask-backend:latest # Replaced build with image for end-to-end Fargate test
+    image: flask-backend:latest
     restart: always
     ports:
       - 8000:8000
     networks:
       - backnet
       - frontnet
+    environment:
+      DATABASE_HOST: db
     depends_on:
       db:
-        condition: service_started # Simplified condition for now
+        condition: service_started
 
   proxy:
     image: nginx-proxy:latest # Replaced build with image

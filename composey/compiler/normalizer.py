@@ -54,10 +54,28 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
                         source = os.path.basename(source)
                     storage_names.append(source)
 
+        # Infer capability from image name
+        capability = "container"
+        image_lower = (docker_service.image or "").lower()
+
+        # Database detection: starts with or matches specific library images
+        db_images = ["postgres", "mysql", "mariadb"]
+        if any(
+            image_lower.startswith(db) or f"/{db}" in image_lower for db in db_images
+        ):
+            capability = "database"
+        # Cache detection
+        elif any(
+            image_lower.startswith(c) or f"/{c}" in image_lower
+            for c in ["redis", "valkey"]
+        ):
+            capability = "cache"
+
         semantic_services.append(
             SemanticService(
                 name=s_name,
                 image=docker_service.image or "placeholder",
+                capability=capability,
                 port=primary_port,
                 env=docker_service.environment,
                 secrets=secret_names,
