@@ -8,7 +8,7 @@ import time
 import pytest
 import requests
 
-from models.environment import Environment
+from composey.models.environment import Environment
 
 
 # Standard Mock Environment
@@ -116,12 +116,19 @@ def localstack_session():
 
     # Wait for LocalStack to be ready
     max_retries = 30
+    print(f"Waiting for LocalStack at {LS_ENDPOINT}...")
     for i in range(max_retries):
-        res = requests.get(f"{LS_ENDPOINT}/_localstack/health")
-        if res.status_code == 200:
-            break
+        try:
+            res = requests.get(f"{LS_ENDPOINT}/_localstack/health", timeout=2)
+            if res.status_code == 200:
+                print(f"LocalStack is ready after {i * 2} seconds.")
+                break
+        except Exception as e:
+            if i % 5 == 0:
+                print(f"Retry {i}: LocalStack not ready yet ({type(e).__name__}: {e})")
         time.sleep(2)
     else:
+        print("LocalStack failed to respond to health check.")
         subprocess.run(["docker", "logs", container_name])
         pytest.fail("LocalStack failed to start in time")
 

@@ -1,14 +1,14 @@
-from compiler.normalizer import normalize
-from models.compose import (
+from composey.compiler.normalizer import normalize
+from composey.models.compose import (
     Application as DockerApplication,
 )
-from models.compose import (
+from composey.models.compose import (
     Dependency,
 )
-from models.compose import (
+from composey.models.compose import (
     Port as DockerPort,
 )
-from models.compose import (
+from composey.models.compose import (
     Service as DockerService,
 )
 

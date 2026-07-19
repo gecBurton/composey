@@ -1,7 +1,7 @@
 import os
 
-from compiler.parser import parse
-from models.compose import Application
+from composey.compiler.parser import parse
+from composey.models.compose import Application
 
 CWD = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 

@@ -6,7 +6,7 @@ import tempfile
 import pytest
 from utils import get_examples
 
-from compiler import compile_to_terraform
+from composey.compiler import compile_to_terraform
 
 
 @pytest.mark.parametrize("example_name", get_examples())

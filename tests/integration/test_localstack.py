@@ -6,7 +6,7 @@ import tempfile
 import pytest
 import requests
 
-from compiler import compile_to_terraform
+from composey.compiler import compile_to_terraform
 
 
 @pytest.mark.parametrize("example_name", ["flask"])
