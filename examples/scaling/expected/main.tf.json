@@ -8,8 +8,7 @@
     "aws_cloudwatch_log_group": {
       "web_lg": {
         "name": "/ecs/prod-scaling-web",
-        "retention_in_days": 7,
-        "tags": {}
+        "retention_in_days": 7
       }
     },
     "aws_db_instance": {
@@ -22,7 +21,6 @@
         "password": "${random_password.db_password.result}",
         "publicly_accessible": false,
         "skip_final_snapshot": true,
-        "tags": {},
         "username": "admin",
         "vpc_security_group_ids": [
           "${aws_security_group.app_sg.id}"
@@ -35,8 +33,7 @@
         "subnet_ids": [
           "subnet-3",
           "subnet-4"
-        ],
-        "tags": {}
+        ]
       }
     },
     "aws_ecs_service": {
@@ -62,7 +59,6 @@
             "subnet-4"
           ]
         },
-        "tags": {},
         "task_definition": "${aws_ecs_task_definition.web_td.arn}"
       }
     },
@@ -77,20 +73,17 @@
         "requires_compatibilities": [
           "FARGATE"
         ],
-        "tags": {},
         "task_role_arn": "${aws_iam_role.web_task_role.arn}"
       }
     },
     "aws_iam_role": {
       "web_exec_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-scaling-web-exec-role",
-        "tags": {}
+        "name": "prod-scaling-web-exec-role"
       },
       "web_task_role": {
         "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
-        "name": "prod-scaling-web-task-role",
-        "tags": {}
+        "name": "prod-scaling-web-task-role"
       }
     },
     "aws_iam_role_policy": {
@@ -118,8 +111,7 @@
           }
         ],
         "listener_arn": "arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456",
-        "priority": 100,
-        "tags": {}
+        "priority": 100
       }
     },
     "aws_lb_target_group": {
@@ -132,7 +124,6 @@
         "name": "prod-scaling-web-tg",
         "port": 80,
         "protocol": "HTTP",
-        "tags": {},
         "target_type": "ip",
         "vpc_id": "vpc-123"
       }
@@ -140,8 +131,7 @@
     "aws_secretsmanager_secret": {
       "db_db_secret": {
         "description": "Credentials for db RDS",
-        "name": "prod-scaling-db-credentials",
-        "tags": {}
+        "name": "prod-scaling-db-credentials"
       }
     },
     "aws_secretsmanager_secret_version": {
@@ -154,7 +144,6 @@
       "app_sg": {
         "description": "Security group for scaling in prod",
         "name": "prod-scaling-sg",
-        "tags": {},
         "vpc_id": "vpc-123"
       }
     },
