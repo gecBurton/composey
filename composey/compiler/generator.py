@@ -34,7 +34,8 @@ def generate(resources: AWSResources, env: Environment) -> str:
     manifest = TerraformManifest(
         terraform={
             "required_providers": {
-                "aws": {"source": "hashicorp/aws", "version": "~> 5.0"}
+                "aws": {"source": "hashicorp/aws", "version": "~> 5.0"},
+                "random": {"source": "hashicorp/random", "version": "~> 3.6"},
             }
         },
         provider={"aws": aws_provider},

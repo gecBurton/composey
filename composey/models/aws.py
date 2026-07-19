@@ -153,6 +153,20 @@ class SecretsManagerSecret(BaseModel):
     description: Optional[str] = None
 
 
+class SecretsManagerSecretVersion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    secret_id: str
+    secret_string: str
+
+
+class RandomPassword(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    length: int = 16
+    special: bool = False
+
+
 class AWSResources(BaseModel):
     """
     A registry of the AWS resources our compiler supports.
@@ -168,6 +182,10 @@ class AWSResources(BaseModel):
     aws_secretsmanager_secret: Dict[str, SecretsManagerSecret] = Field(
         default_factory=dict
     )
+    aws_secretsmanager_secret_version: Dict[str, SecretsManagerSecretVersion] = Field(
+        default_factory=dict
+    )
+    random_password: Dict[str, RandomPassword] = Field(default_factory=dict)
     aws_s3_bucket: Dict[str, S3Bucket] = Field(default_factory=dict)
     aws_iam_role: Dict[str, IamRole] = Field(default_factory=dict)
     aws_iam_role_policy: Dict[str, IamRolePolicy] = Field(default_factory=dict)
