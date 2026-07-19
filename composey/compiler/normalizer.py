@@ -76,10 +76,18 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         ):
             capability = "object-storage"
 
-        # Extract x-composey size hint
+        # Extract x-composey size/resource hints
         size = "small"
-        if "size" in docker_service.x_composey:
-            size = docker_service.x_composey["size"]
+        cpu = None
+        memory = None
+
+        x_composey = docker_service.x_composey
+        if "size" in x_composey:
+            size = x_composey["size"]
+        if "cpu" in x_composey:
+            cpu = int(x_composey["cpu"])
+        if "memory" in x_composey:
+            memory = int(x_composey["memory"])
 
         semantic_services.append(
             SemanticService(
@@ -87,6 +95,8 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
                 image=docker_service.image or "placeholder",
                 capability=capability,
                 size=size,
+                cpu=cpu,
+                memory=memory,
                 port=primary_port,
                 env=docker_service.environment,
                 secrets=secret_names,

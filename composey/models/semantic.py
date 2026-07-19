@@ -2,7 +2,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Capability = Literal["container", "database", "cache", "queue", "object-storage"]
+Capability = Literal["container", "database", "cache", "object-storage"]
 
 
 class Service(BaseModel):
@@ -22,8 +22,8 @@ class Service(BaseModel):
     size: Literal["small", "medium", "large"] = Field(
         default="small", description="The relative size of the compute resource"
     )
-    cpu: int = Field(default=256, description="CPU units (1024 = 1 vCPU)")
-    memory: int = Field(default=512, description="Memory in MiB")
+    cpu: Optional[int] = Field(default=None, description="CPU units (1024 = 1 vCPU)")
+    memory: Optional[int] = Field(default=None, description="Memory in MiB")
     port: Optional[int] = Field(
         default=None, description="The internal port the service listens on"
     )

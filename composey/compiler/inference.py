@@ -40,7 +40,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         name=get_name("sg"),
         vpc_id=env.vpc_id,
         description=f"Security group for {app.name} in {env.name}",
-        tags=env.tags,
+        tags=env.tags if env.tags else None,
     )
 
     # 2. Map each Semantic Service to AWS resources
@@ -54,10 +54,9 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         compute = size_map.get(service.size, size_map["small"])
 
         # Override with explicit service-level CPU/Memory if provided
-        # (Assuming the model default values match the 'small' size)
-        if service.cpu != 256:
+        if service.cpu is not None:
             compute["cpu"] = service.cpu
-        if service.memory != 512:
+        if service.memory is not None:
             compute["memory"] = service.memory
 
         if service.capability == "database":
@@ -79,7 +78,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_secretsmanager_secret[db_secret_key] = SecretsManagerSecret(
                 name=get_name(f"{service.name}-credentials"),
                 description=f"Credentials for {service.name} RDS",
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
 
             # 3. Create the secret version (Initial credentials)
@@ -100,7 +99,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_db_subnet_group[sng_key] = DbSubnetGroup(
                 name=get_name(f"{service.name}-sng"),
                 subnet_ids=env.private_subnets,
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
 
             # Map x-composey size to RDS instance classes
@@ -124,7 +123,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 publicly_accessible=False,
                 username=db_username,
                 password=f"${{random_password.{password_key}.result}}",
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
             continue
 
@@ -134,7 +133,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_elasticache_subnet_group[sng_key] = ElastiCacheSubnetGroup(
                 name=get_name(f"{service.name}-sng"),
                 subnet_ids=env.private_subnets,
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
 
             # Map size to ElastiCache node types
@@ -152,7 +151,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 num_cache_nodes=1,
                 subnet_group_name=f"${{aws_elasticache_subnet_group.{sng_key}.name}}",
                 security_group_ids=[f"${{aws_security_group.{app_sg_key}.id}}"],
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
             continue
 
@@ -165,7 +164,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 .replace("_", "-")[:63]
                 .rstrip("-"),
                 force_destroy=True,
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
             continue
 
@@ -175,7 +174,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         resources.aws_cloudwatch_log_group[log_group_key] = CloudWatchLogGroup(
             name=f"/ecs/{get_name(service.name)}",
             retention_in_days=7,
-            tags=env.tags,
+            tags=env.tags if env.tags else None,
         )
 
         # 2. Create IAM Roles for the service
@@ -194,7 +193,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     ],
                 }
             ),
-            tags=env.tags,
+            tags=env.tags if env.tags else None,
         )
 
         exec_role_key = f"{service.name}_exec_role"
@@ -212,7 +211,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                     ],
                 }
             ),
-            tags=env.tags,
+            tags=env.tags if env.tags else None,
         )
 
         # 3. Grant Exec Role permission to push logs
@@ -250,7 +249,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 .replace("_", "-")[:63]
                 .rstrip("-"),
                 force_destroy=True,
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
 
             policy_key = f"{service.name}_{safe_id}_policy"
@@ -281,7 +280,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             resources.aws_secretsmanager_secret[secret_key] = SecretsManagerSecret(
                 name=get_name(f"{service.name}-{secret_name}"),
                 description=f"Secret {secret_name} for {app.name} service {service.name}",
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
 
             # Create a placeholder secret version so the secret is not empty
@@ -356,7 +355,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             container_definitions=json.dumps([container.model_dump(exclude_none=True)]),
             execution_role_arn=f"${{aws_iam_role.{exec_role_key}.arn}}",
             task_role_arn=f"${{aws_iam_role.{task_role_key}.arn}}",
-            tags=env.tags,
+            tags=env.tags if env.tags else None,
         )
 
         # ECS Service
@@ -370,7 +369,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 "security_groups": [f"${{aws_security_group.{app_sg_key}.id}}"],
                 "assign_public_ip": False,
             },
-            tags=env.tags,
+            tags=env.tags if env.tags else None,
         )
 
         # 4. Handle Public Ingress (ALB integration)
@@ -383,7 +382,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 vpc_id=env.vpc_id,
                 target_type="ip",
                 health_check={"enabled": True, "path": "/", "matcher": "200-399"},
-                tags=env.tags,
+                tags=env.tags if env.tags else None,
             )
 
             if env.alb_listener_arn:
@@ -398,7 +397,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                         }
                     ],
                     condition=[{"path_pattern": {"values": ["/*"]}}],
-                    tags=env.tags,
+                    tags=env.tags if env.tags else None,
                 )
 
             ecs_service.load_balancer = [
