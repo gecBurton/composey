@@ -31,3 +31,7 @@ class Environment(BaseModel):
     tags: Dict[str, str] = Field(
         default_factory=dict, description="Default tags for all resources"
     )
+    aws_endpoint: Optional[str] = Field(
+        default=None,
+        description="Optional custom endpoint for AWS services (e.g., for LocalStack)",
+    )

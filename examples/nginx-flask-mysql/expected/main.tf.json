@@ -71,35 +71,64 @@
       "backend_td": {
         "container_definitions": "[{\"name\": \"backend\", \"image\": \"flask-backend:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 8000, \"hostPort\": 8000, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
         "cpu": "256",
-        "execution_role_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "execution_role_arn": "${aws_iam_role.backend_exec_role.arn}",
         "family": "prod-nginx-flask-mysql-backend",
         "memory": "512",
         "network_mode": "awsvpc",
         "requires_compatibilities": [
           "FARGATE"
-        ]
+        ],
+        "task_role_arn": "${aws_iam_role.backend_task_role.arn}"
       },
       "db_td": {
         "container_definitions": "[{\"name\": \"db\", \"image\": \"mariadb:10-focal\", \"essential\": true, \"portMappings\": [], \"environment\": [{\"name\": \"MYSQL_DATABASE\", \"value\": \"example\"}], \"secrets\": []}]",
         "cpu": "256",
-        "execution_role_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "execution_role_arn": "${aws_iam_role.db_exec_role.arn}",
         "family": "prod-nginx-flask-mysql-db",
         "memory": "512",
         "network_mode": "awsvpc",
         "requires_compatibilities": [
           "FARGATE"
-        ]
+        ],
+        "task_role_arn": "${aws_iam_role.db_task_role.arn}"
       },
       "proxy_td": {
         "container_definitions": "[{\"name\": \"proxy\", \"image\": \"nginx-proxy:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": []}]",
         "cpu": "256",
-        "execution_role_arn": "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
+        "execution_role_arn": "${aws_iam_role.proxy_exec_role.arn}",
         "family": "prod-nginx-flask-mysql-proxy",
         "memory": "512",
         "network_mode": "awsvpc",
         "requires_compatibilities": [
           "FARGATE"
-        ]
+        ],
+        "task_role_arn": "${aws_iam_role.proxy_task_role.arn}"
+      }
+    },
+    "aws_iam_role": {
+      "backend_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-nginx-flask-mysql-backend-exec-role"
+      },
+      "backend_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-nginx-flask-mysql-backend-task-role"
+      },
+      "db_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-nginx-flask-mysql-db-exec-role"
+      },
+      "db_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-nginx-flask-mysql-db-task-role"
+      },
+      "proxy_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-nginx-flask-mysql-proxy-exec-role"
+      },
+      "proxy_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-nginx-flask-mysql-proxy-task-role"
       }
     },
     "aws_lb_listener_rule": {
