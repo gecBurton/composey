@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -25,12 +26,8 @@ class Environment(BaseModel):
     alb_listener_arn: Optional[str] = Field(
         default=None, description="The ARN of the HTTPS/HTTP listener on the ALB"
     )
-    base_domain: Optional[str] = Field(
-        default=None,
-        description="The base domain for the environment (e.g., example.com)",
-    )
-    tags: Dict[str, str] = Field(
-        default_factory=dict, description="Default tags for all resources"
+    tags: Optional[Dict[str, str]] = Field(
+        default=None, description="Default tags for all resources"
     )
     aws_endpoint: Optional[str] = Field(
         default=None,
@@ -39,8 +36,6 @@ class Environment(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str) -> "Environment":
-        import yaml
-
         with open(path, "r") as f:
             data = yaml.safe_load(f)
         return cls.model_validate(data)

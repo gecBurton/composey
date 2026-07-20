@@ -67,6 +67,9 @@ Composey supports the **`x-composey`** extension to allow engineers to specify t
 - `medium`: 1024 CPU, 2GB RAM | `db.t3.medium`
 - `large`: 4096 CPU, 8GB RAM | `db.m5.large`
 
+> [!NOTE]
+> You can also specify exact `cpu` and `memory` values via `x-composey`. Note that AWS Fargate only supports specific [CPU and Memory combinations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-task-error-reference.html#fargate-task-error-combination).
+
 **Example:**
 ```yaml
 services:
@@ -74,6 +77,8 @@ services:
     image: my-app
     x-composey:
       size: large
+      cpu: 1024  # Override large's default CPU
+      memory: 4096 # Override large's default Memory
 ```
 
 ### 🗄 Managed Databases (RDS)
@@ -117,6 +122,9 @@ uv sync
 
 ### Compiling a Project
 To compile a Docker Compose file, you must provide an **Environment** configuration (YAML) which describes the target AWS account context (VPC, Cluster, etc.).
+
+> [!TIP]
+> You can create a compliant AWS environment automatically using the provided [Terraform infrastructure code](./infra/environment/).
 
 ```bash
 # Basic compilation
