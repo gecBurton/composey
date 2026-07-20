@@ -27,6 +27,8 @@ class Service(BaseModel):
     port: Optional[int] = Field(
         default=None, description="The internal port the service listens on"
     )
+    min_scale: int = Field(default=1, description="Minimum number of instances")
+    max_scale: int = Field(default=1, description="Maximum number of instances")
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
     )

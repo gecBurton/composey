@@ -85,3 +85,19 @@ def test_normalize_multiple_ports_takes_first():
     # It should pick the target of the first port entry
     assert semantic_app.services[0].port == 3000
     assert semantic_app.public_service == "web"
+
+
+def test_normalize_scaling():
+    docker_app = DockerApplication(
+        services={
+            "web": DockerService(
+                image="web:latest",
+                **{"x-composey": {"min_scale": 2, "max_scale": 10}},
+            )
+        }
+    )
+
+    semantic_app = normalize(docker_app, "test-project")
+
+    assert semantic_app.services[0].min_scale == 2
+    assert semantic_app.services[0].max_scale == 10

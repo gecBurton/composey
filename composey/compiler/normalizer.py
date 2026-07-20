@@ -80,6 +80,8 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         size = "small"
         cpu = None
         memory = None
+        min_scale = 1
+        max_scale = 1
 
         x_composey = docker_service.x_composey
         if "size" in x_composey:
@@ -88,6 +90,10 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
             cpu = int(x_composey["cpu"])
         if "memory" in x_composey:
             memory = int(x_composey["memory"])
+        if "min_scale" in x_composey:
+            min_scale = int(x_composey["min_scale"])
+        if "max_scale" in x_composey:
+            max_scale = int(x_composey["max_scale"])
 
         semantic_services.append(
             SemanticService(
@@ -98,6 +104,8 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
                 cpu=cpu,
                 memory=memory,
                 port=primary_port,
+                min_scale=min_scale,
+                max_scale=max_scale,
                 env=docker_service.environment,
                 secrets=secret_names,
                 storage=storage_names,

@@ -2,6 +2,8 @@ import json
 import re
 
 from ..models.aws import (
+    AppAutoscalingPolicy,
+    AppAutoscalingTarget,
     AWSResources,
     CloudWatchLogGroup,
     ContainerDefinition,
@@ -422,6 +424,41 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             )
 
         resources.aws_ecs_service[service_key] = ecs_service
+
+        # 5. Handle Auto-scaling
+        if service.max_scale > 1:
+            target_key = f"{service.name}_asg_target"
+            resources.aws_appautoscaling_target[target_key] = AppAutoscalingTarget(
+                max_capacity=service.max_scale,
+                min_capacity=service.min_scale,
+                resource_id=f'service/${{split("/", "${{aws_ecs_service.{service_key}.cluster}}")[1]}}/${{aws_ecs_service.{service_key}.name}}',
+            )
+
+            # CPU Scaling Policy
+            cpu_policy_key = f"{service.name}_cpu_scaling"
+            resources.aws_appautoscaling_policy[cpu_policy_key] = AppAutoscalingPolicy(
+                name=get_name(f"{service.name}-cpu-scaling"),
+                resource_id=f"${{aws_appautoscaling_target.{target_key}.resource_id}}",
+                target_tracking_scaling_policy_configuration={
+                    "predefined_metric_specification": {
+                        "predefined_metric_type": "ECSServiceAverageCPUUtilization"
+                    },
+                    "target_value": 70.0,
+                },
+            )
+
+            # Memory Scaling Policy
+            mem_policy_key = f"{service.name}_mem_scaling"
+            resources.aws_appautoscaling_policy[mem_policy_key] = AppAutoscalingPolicy(
+                name=get_name(f"{service.name}-mem-scaling"),
+                resource_id=f"${{aws_appautoscaling_target.{target_key}.resource_id}}",
+                target_tracking_scaling_policy_configuration={
+                    "predefined_metric_specification": {
+                        "predefined_metric_type": "ECSServiceAverageMemoryUtilization"
+                    },
+                    "target_value": 80.0,
+                },
+            )
 
     # 3. Dynamic Link Injection (Service Discovery)
     # If a service depends on a managed capability, inject the connection details

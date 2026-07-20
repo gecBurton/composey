@@ -196,6 +196,27 @@ class CloudWatchLogGroup(BaseModel):
     tags: Optional[Dict[str, str]] = None
 
 
+class AppAutoscalingTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    max_capacity: int
+    min_capacity: int
+    resource_id: str
+    scalable_dimension: str = "ecs:service:DesiredCount"
+    service_namespace: str = "ecs"
+
+
+class AppAutoscalingPolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    policy_type: str = "TargetTrackingScaling"
+    resource_id: str
+    scalable_dimension: str = "ecs:service:DesiredCount"
+    service_namespace: str = "ecs"
+    target_tracking_scaling_policy_configuration: Dict[str, Any]
+
+
 class AWSResources(BaseModel):
     """
     A registry of the AWS resources our compiler supports.
@@ -203,6 +224,12 @@ class AWSResources(BaseModel):
 
     aws_ecs_task_definition: Dict[str, EcsTaskDefinition] = Field(default_factory=dict)
     aws_ecs_service: Dict[str, EcsService] = Field(default_factory=dict)
+    aws_appautoscaling_target: Dict[str, AppAutoscalingTarget] = Field(
+        default_factory=dict
+    )
+    aws_appautoscaling_policy: Dict[str, AppAutoscalingPolicy] = Field(
+        default_factory=dict
+    )
     aws_security_group: Dict[str, SecurityGroup] = Field(default_factory=dict)
     aws_security_group_rule: Dict[str, SecurityGroupRule] = Field(default_factory=dict)
     aws_cloudwatch_log_group: Dict[str, CloudWatchLogGroup] = Field(
