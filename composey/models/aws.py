@@ -236,6 +236,31 @@ class CloudwatchEventTarget(BaseModel):
     ecs_target: Optional[Dict[str, Any]] = None
 
 
+class CloudfrontDistribution(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    comment: Optional[str] = None
+    origin: List[Dict[str, Any]]
+    default_cache_behavior: Dict[str, Any]
+    restrictions: Dict[str, Any] = {"geo_restriction": {"restriction_type": "none"}}
+    viewer_certificate: Dict[str, Any] = {"cloudfront_default_certificate": True}
+    web_acl_id: Optional[str] = None
+    tags: Optional[Dict[str, str]] = None
+
+
+class Wafv2WebAcl(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    scope: Literal["CLOUDFRONT", "REGIONAL"]
+    description: Optional[str] = None
+    default_action: Dict[str, Any] = {"allow": {}}
+    visibility_config: Dict[str, Any]
+    rule: Optional[List[Dict[str, Any]]] = None
+    tags: Optional[Dict[str, str]] = None
+
+
 class AWSResources(BaseModel):
     """
     A registry of the AWS resources our compiler supports.
@@ -255,6 +280,10 @@ class AWSResources(BaseModel):
     aws_cloudwatch_event_target: Dict[str, CloudwatchEventTarget] = Field(
         default_factory=dict
     )
+    aws_cloudfront_distribution: Dict[str, CloudfrontDistribution] = Field(
+        default_factory=dict
+    )
+    aws_wafv2_web_acl: Dict[str, Wafv2WebAcl] = Field(default_factory=dict)
     aws_security_group: Dict[str, SecurityGroup] = Field(default_factory=dict)
     aws_security_group_rule: Dict[str, SecurityGroupRule] = Field(default_factory=dict)
     aws_cloudwatch_log_group: Dict[str, CloudWatchLogGroup] = Field(

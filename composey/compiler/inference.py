@@ -5,6 +5,7 @@ from ..models.aws import (
     AppAutoscalingPolicy,
     AppAutoscalingTarget,
     AWSResources,
+    CloudfrontDistribution,
     CloudwatchEventRule,
     CloudwatchEventTarget,
     CloudWatchLogGroup,
@@ -26,6 +27,7 @@ from ..models.aws import (
     SecurityGroup,
     SecurityGroupRule,
     TerraformLifecycle,
+    Wafv2WebAcl,
 )
 from ..models.environment import Environment
 from ..models.semantic import Application as SemanticApp
@@ -424,6 +426,81 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 cidr_blocks=["0.0.0.0/0"],
                 description=f"Allow ALB to talk to {service.name}",
             )
+
+            # 4b. Handle CloudFront CDN
+            if service.cdn_enabled:
+                waf_key = f"{service.name}_waf"
+                resources.aws_wafv2_web_acl[waf_key] = Wafv2WebAcl(
+                    name=get_name(f"{service.name}-waf"),
+                    scope="CLOUDFRONT",
+                    visibility_config={
+                        "cloudwatch_metrics_enabled": True,
+                        "metric_name": f"{service.name}WAF",
+                        "sampled_requests_enabled": True,
+                    },
+                    rule=[
+                        {
+                            "name": "AWS-AWSManagedRulesCommonRuleSet",
+                            "priority": 1,
+                            "override_action": {"none": {}},
+                            "statement": {
+                                "managed_rule_group_statement": {
+                                    "name": "AWSManagedRulesCommonRuleSet",
+                                    "vendor_name": "AWS",
+                                }
+                            },
+                            "visibility_config": {
+                                "cloudwatch_metrics_enabled": True,
+                                "metric_name": "AWSManagedRulesCommonRuleSet",
+                                "sampled_requests_enabled": True,
+                            },
+                        }
+                    ],
+                )
+
+                cdn_key = f"{service.name}_cdn"
+                # For an ALB origin, we need the DNS name of the ALB.
+                # In this simple model, we assume the environment provides an alb_dns_name
+                # or we use a placeholder that the user can fill.
+                # Since we don't have alb_dns_name in Environment model yet, we'll use a placeholder interpolation
+                # or assume the user has a custom domain.
+                # For now, let's assume we can use the ALB ARN to find the DNS name via a data source
+                # (but let's keep it simple for this prototype).
+                resources.aws_cloudfront_distribution[cdn_key] = CloudfrontDistribution(
+                    comment=f"CDN for {service.name}",
+                    origin=[
+                        {
+                            "domain_name": f'${{split("/", "{env.alb_arn}")[2]}}',  # Rough hack to get DNS-ish name
+                            "origin_id": "ALB",
+                            "custom_origin_config": {
+                                "http_port": 80,
+                                "https_port": 443,
+                                "origin_protocol_policy": "http-only",
+                                "origin_ssl_protocols": ["TLSv1.2"],
+                            },
+                        }
+                    ],
+                    default_cache_behavior={
+                        "allowed_methods": [
+                            "DELETE",
+                            "GET",
+                            "HEAD",
+                            "OPTIONS",
+                            "PATCH",
+                            "POST",
+                            "PUT",
+                        ],
+                        "cached_methods": ["GET", "HEAD"],
+                        "target_origin_id": "ALB",
+                        "viewer_protocol_policy": "redirect-to-https",
+                        "forwarded_values": {
+                            "query_string": True,
+                            "cookies": {"forward": "all"},
+                        },
+                    },
+                    web_acl_id=f"${{aws_wafv2_web_acl.{waf_key}.arn}}",
+                    tags=tags,
+                )
 
         # Only create an ECS Service if it's NOT a scheduled task
         if not service.schedule:

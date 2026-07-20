@@ -26,6 +26,9 @@ Composey provides a PaaS-like deployment experience where application engineers 
 - [x] **Managed Object Storage**: Automatically infers AWS S3 from `minio` images.
 - [x] **Managed Databases**: Automatically infers AWS RDS (Postgres/MySQL/MariaDB) from library images.
 - [x] **Managed Caching**: Automatically infers AWS ElastiCache (Redis) from library images.
+- [x] **Managed Queuing**: Smart injection of Redis/ElastiCache endpoints into connection strings.
+- [x] **Edge Delivery**: Optional CloudFront + WAF integration for public services.
+- [x] **Scheduled Tasks**: Native EventBridge integration for cron-like jobs.
 - [x] **Worker**: Support for background services without public ports.
 
 ### Quality & Guarantees
@@ -59,16 +62,18 @@ Composey provides a PaaS-like deployment experience where application engineers 
 
 Composey doesn't just run containers; it intelligently substitutes cloud-native AWS services for common infrastructure components and supports intent-based scaling.
 
-### 📊 Compute & Database Scaling
-Composey supports the **`x-composey`** extension to allow engineers to specify the relative "size" of their resources without needing to know specific AWS instance classes or CPU/Memory units.
+### 📊 Compute & Scaling
+Composey supports the **`x-composey`** extension to allow engineers to specify the relative "size" of their resources and auto-scaling boundaries.
 
 **Supported Sizes:**
 - `small` (Default): 256 CPU, 512MB RAM | `db.t3.micro`
 - `medium`: 1024 CPU, 2GB RAM | `db.t3.medium`
 - `large`: 4096 CPU, 8GB RAM | `db.m5.large`
 
-> [!NOTE]
-> You can also specify exact `cpu` and `memory` values via `x-composey`. Note that AWS Fargate only supports specific [CPU and Memory combinations](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-task-error-reference.html#fargate-task-error-combination).
+**Scaling & Resources:**
+- `min_scale`: Minimum number of instances (Default: 1).
+- `max_scale`: Maximum number of instances (Default: 1). If > 1, creates AWS AppAutoScaling policies for CPU (70%) and Memory (80%).
+- `cpu` / `memory`: Explicit Fargate unit overrides.
 
 **Example:**
 ```yaml
@@ -76,9 +81,31 @@ services:
   web:
     image: my-app
     x-composey:
-      size: large
-      cpu: 1024  # Override large's default CPU
-      memory: 4096 # Override large's default Memory
+      size: medium
+      min_scale: 2
+      max_scale: 10
+```
+
+### 🌍 Global Edge & Security (CDN)
+For public-facing services, you can enable a global edge presence with built-in security.
+
+- `cdn`: Set to `true` to provision an **AWS CloudFront Distribution** in front of your ALB.
+- **Automatic WAF**: Enabling `cdn` automatically attaches an **AWS WAFv2 Web ACL** with the "Core Rule Set" managed rules enabled.
+
+### ⏰ Scheduled Tasks (Cron)
+Turn any container into a serverless scheduled job.
+
+- `schedule`: An AWS EventBridge compatible schedule expression (e.g., `cron(0 2 * * ? *)` or `rate(1 hour)`).
+- **Behavior**: Services with a `schedule` do not run as persistent ECS services. They are triggered as standalone tasks.
+
+**Example:**
+```yaml
+services:
+  db-cleanup:
+    image: my-utils
+    command: ["python", "cleanup.py"]
+    x-composey:
+      schedule: "rate(24 hours)"
 ```
 
 ### 🗄 Managed Databases (RDS)

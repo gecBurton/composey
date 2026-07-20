@@ -83,6 +83,7 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         min_scale = 1
         max_scale = 1
         schedule = None
+        cdn_enabled = False
 
         x_composey = docker_service.x_composey
         if "size" in x_composey:
@@ -97,6 +98,8 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
             max_scale = int(x_composey["max_scale"])
         if "schedule" in x_composey:
             schedule = x_composey["schedule"]
+        if "cdn" in x_composey:
+            cdn_enabled = bool(x_composey["cdn"])
 
         semantic_services.append(
             SemanticService(
@@ -110,6 +113,7 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
                 min_scale=min_scale,
                 max_scale=max_scale,
                 schedule=schedule,
+                cdn_enabled=cdn_enabled,
                 env=docker_service.environment,
                 secrets=secret_names,
                 storage=storage_names,
