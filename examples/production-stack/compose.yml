@@ -1,0 +1,29 @@
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - cache
+      - db
+    x-composey:
+      size: medium
+      min_scale: 2
+      max_scale: 10
+      cdn: true
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_PASSWORD=password
+
+  cache:
+    image: redis:alpine
+    environment:
+      - REDIS_URL=redis://cache
+
+  cleanup:
+    image: busybox
+    command: ["echo", "cleaning up..."]
+    x-composey:
+      schedule: "cron(0 2 * * ? *)"
