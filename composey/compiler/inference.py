@@ -5,6 +5,8 @@ from ..models.aws import (
     AppAutoscalingPolicy,
     AppAutoscalingTarget,
     AWSResources,
+    CloudwatchEventRule,
+    CloudwatchEventTarget,
     CloudWatchLogGroup,
     ContainerDefinition,
     DbInstance,
@@ -378,7 +380,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         )
 
         # 4. Handle Public Ingress (ALB integration)
-        if app.public_service == service.name and env.alb_arn:
+        if app.public_service == service.name and env.alb_arn and not service.schedule:
             tg_key = f"{service.name}_tg"
             resources.aws_lb_target_group[tg_key] = LbTargetGroup(
                 name=get_name(f"{service.name}-tg"),
@@ -423,7 +425,90 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 description=f"Allow ALB to talk to {service.name}",
             )
 
-        resources.aws_ecs_service[service_key] = ecs_service
+        # Only create an ECS Service if it's NOT a scheduled task
+        if not service.schedule:
+            resources.aws_ecs_service[service_key] = ecs_service
+        else:
+            # Scheduled Task (EventBridge)
+            rule_key = f"{service.name}_rule"
+            resources.aws_cloudwatch_event_rule[rule_key] = CloudwatchEventRule(
+                name=get_name(f"{service.name}-rule"),
+                schedule_expression=service.schedule,
+                description=f"Schedule for {service.name}",
+                tags=tags,
+            )
+
+            # We need an IAM role for EventBridge to run tasks
+            eb_role_key = f"{service.name}_eb_role"
+            resources.aws_iam_role[eb_role_key] = IamRole(
+                name=get_name(f"{service.name}-eb-role"),
+                assume_role_policy=json.dumps(
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Action": "sts:AssumeRole",
+                                "Effect": "Allow",
+                                "Principal": {"Service": "events.amazonaws.com"},
+                            }
+                        ],
+                    }
+                ),
+                tags=tags,
+            )
+
+            eb_policy_key = f"{service.name}_eb_policy"
+            resources.aws_iam_role_policy[eb_policy_key] = IamRolePolicy(
+                name=get_name(f"{service.name}-eb-policy"),
+                role=f"${{aws_iam_role.{eb_role_key}.name}}",
+                policy=json.dumps(
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": "ecs:RunTask",
+                                "Resource": [
+                                    f"${{aws_ecs_task_definition.{task_def_key}.arn}}"
+                                ],
+                                "Condition": {
+                                    "ArnLike": {"ecs:cluster": f"{env.ecs_cluster_arn}"}
+                                },
+                            },
+                            {
+                                "Effect": "Allow",
+                                "Action": "iam:PassRole",
+                                "Resource": ["*"],
+                                "Condition": {
+                                    "StringLike": {
+                                        "iam:PassedToService": "ecs-tasks.amazonaws.com"
+                                    }
+                                },
+                            },
+                        ],
+                    }
+                ),
+            )
+
+            resources.aws_cloudwatch_event_target[f"{service.name}_target"] = (
+                CloudwatchEventTarget(
+                    rule=f"${{aws_cloudwatch_event_rule.{rule_key}.name}}",
+                    arn=env.ecs_cluster_arn,
+                    role_arn=f"${{aws_iam_role.{eb_role_key}.arn}}",
+                    ecs_target={
+                        "task_count": 1,
+                        "task_definition_arn": f"${{aws_ecs_task_definition.{task_def_key}.arn}}",
+                        "launch_type": "FARGATE",
+                        "network_configuration": {
+                            "subnets": env.private_subnets,
+                            "security_groups": [
+                                f"${{aws_security_group.{app_sg_key}.id}}"
+                            ],
+                            "assign_public_ip": False,
+                        },
+                    },
+                )
+            )
 
         # 5. Handle Auto-scaling
         if service.max_scale > 1:
@@ -532,6 +617,8 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                 address = (
                     f"${{aws_elasticache_cluster.{cache_key}.cache_nodes[0].address}}"
                 )
+                port = 6379  # Default Redis port
+
             elif server.capability == "object-storage":
                 bucket_key = f"{server.name}_bucket"
                 address = f"${{aws_s3_bucket.{bucket_key}.bucket_domain_name}}"
@@ -566,7 +653,21 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
 
                 # Choose best replacement based on variable intent
                 replacement = address
-                if server.capability == "object-storage":
+                if server.capability == "cache":
+                    # Smart matching for Redis URLs
+                    if (
+                        val.startswith("redis://")
+                        or val.startswith("rediss://")
+                        or "_URL" in name
+                        or "BROKER" in name
+                    ):
+                        # Construct a full redis URL if it looks like one was intended
+                        prefix = "redis://"
+                        if val.startswith("rediss://"):
+                            prefix = "rediss://"
+                        replacement = f"{prefix}{address}:{port}"
+
+                elif server.capability == "object-storage":
                     # Smart matching for bucket variables
                     # Tighten check to avoid matching USERNAME/HOSTNAME
                     if (
@@ -583,7 +684,11 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
                         else:
                             replacement = f"http://{address}"
 
-                if val == server.name:
+                if (
+                    val == server.name
+                    or val.startswith(f"redis://{server.name}")
+                    or val.startswith(f"rediss://{server.name}")
+                ):
                     env_var["value"] = replacement
                 elif (
                     f"://{server.name}:" in val
