@@ -1,0 +1,417 @@
+{
+  "provider": {
+    "aws": {
+      "region": "us-east-1"
+    }
+  },
+  "resource": {
+    "aws_appautoscaling_policy": {
+      "web_cpu_scaling": {
+        "name": "prod-production-stack-web-cpu-scaling",
+        "policy_type": "TargetTrackingScaling",
+        "resource_id": "${aws_appautoscaling_target.web_asg_target.resource_id}",
+        "scalable_dimension": "ecs:service:DesiredCount",
+        "service_namespace": "ecs",
+        "target_tracking_scaling_policy_configuration": {
+          "predefined_metric_specification": {
+            "predefined_metric_type": "ECSServiceAverageCPUUtilization"
+          },
+          "target_value": 70.0
+        }
+      },
+      "web_mem_scaling": {
+        "name": "prod-production-stack-web-mem-scaling",
+        "policy_type": "TargetTrackingScaling",
+        "resource_id": "${aws_appautoscaling_target.web_asg_target.resource_id}",
+        "scalable_dimension": "ecs:service:DesiredCount",
+        "service_namespace": "ecs",
+        "target_tracking_scaling_policy_configuration": {
+          "predefined_metric_specification": {
+            "predefined_metric_type": "ECSServiceAverageMemoryUtilization"
+          },
+          "target_value": 80.0
+        }
+      }
+    },
+    "aws_appautoscaling_target": {
+      "web_asg_target": {
+        "max_capacity": 10,
+        "min_capacity": 2,
+        "resource_id": "service/${split(\"/\", \"${aws_ecs_service.web_service.cluster}\")[1]}/${aws_ecs_service.web_service.name}",
+        "scalable_dimension": "ecs:service:DesiredCount",
+        "service_namespace": "ecs"
+      }
+    },
+    "aws_cloudfront_distribution": {
+      "web_cdn": {
+        "comment": "CDN for web",
+        "default_cache_behavior": {
+          "allowed_methods": [
+            "DELETE",
+            "GET",
+            "HEAD",
+            "OPTIONS",
+            "PATCH",
+            "POST",
+            "PUT"
+          ],
+          "cached_methods": [
+            "GET",
+            "HEAD"
+          ],
+          "forwarded_values": {
+            "cookies": {
+              "forward": "all"
+            },
+            "query_string": true
+          },
+          "target_origin_id": "ALB",
+          "viewer_protocol_policy": "redirect-to-https"
+        },
+        "enabled": true,
+        "origin": [
+          {
+            "custom_origin_config": {
+              "http_port": 80,
+              "https_port": 443,
+              "origin_protocol_policy": "http-only",
+              "origin_ssl_protocols": [
+                "TLSv1.2"
+              ]
+            },
+            "domain_name": "${split(\"/\", \"arn:aws:lb:us-east-1:123456789012:loadbalancer/app/shared-alb/123\")[2]}",
+            "origin_id": "ALB"
+          }
+        ],
+        "restrictions": {
+          "geo_restriction": {
+            "restriction_type": "none"
+          }
+        },
+        "viewer_certificate": {
+          "cloudfront_default_certificate": true
+        },
+        "web_acl_id": "${aws_wafv2_web_acl.web_waf.arn}"
+      }
+    },
+    "aws_cloudwatch_event_rule": {
+      "cleanup_rule": {
+        "description": "Schedule for cleanup",
+        "name": "prod-production-stack-cleanup-rule",
+        "schedule_expression": "cron(0 2 * * ? *)",
+        "state": "ENABLED"
+      }
+    },
+    "aws_cloudwatch_event_target": {
+      "cleanup_target": {
+        "arn": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
+        "ecs_target": {
+          "launch_type": "FARGATE",
+          "network_configuration": {
+            "assign_public_ip": false,
+            "security_groups": [
+              "${aws_security_group.app_sg.id}"
+            ],
+            "subnets": [
+              "subnet-3",
+              "subnet-4"
+            ]
+          },
+          "task_count": 1,
+          "task_definition_arn": "${aws_ecs_task_definition.cleanup_td.arn}"
+        },
+        "role_arn": "${aws_iam_role.cleanup_eb_role.arn}",
+        "rule": "${aws_cloudwatch_event_rule.cleanup_rule.name}"
+      }
+    },
+    "aws_cloudwatch_log_group": {
+      "cleanup_lg": {
+        "name": "/ecs/prod-production-stack-cleanup",
+        "retention_in_days": 7
+      },
+      "web_lg": {
+        "name": "/ecs/prod-production-stack-web",
+        "retention_in_days": 7
+      }
+    },
+    "aws_db_instance": {
+      "db_db": {
+        "allocated_storage": 20,
+        "db_subnet_group_name": "${aws_db_subnet_group.db_sng.name}",
+        "engine": "postgres",
+        "identifier": "prod-production-stack-db",
+        "instance_class": "db.t3.micro",
+        "password": "${random_password.db_password.result}",
+        "publicly_accessible": false,
+        "skip_final_snapshot": true,
+        "username": "admin",
+        "vpc_security_group_ids": [
+          "${aws_security_group.app_sg.id}"
+        ]
+      }
+    },
+    "aws_db_subnet_group": {
+      "db_sng": {
+        "name": "prod-production-stack-db-sng",
+        "subnet_ids": [
+          "subnet-3",
+          "subnet-4"
+        ]
+      }
+    },
+    "aws_ecs_service": {
+      "web_service": {
+        "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
+        "desired_count": 1,
+        "launch_type": "FARGATE",
+        "load_balancer": [
+          {
+            "container_name": "web",
+            "container_port": 80,
+            "target_group_arn": "${aws_lb_target_group.web_tg.arn}"
+          }
+        ],
+        "name": "prod-production-stack-web",
+        "network_configuration": {
+          "assign_public_ip": false,
+          "security_groups": [
+            "${aws_security_group.app_sg.id}"
+          ],
+          "subnets": [
+            "subnet-3",
+            "subnet-4"
+          ]
+        },
+        "task_definition": "${aws_ecs_task_definition.web_td.arn}"
+      }
+    },
+    "aws_ecs_task_definition": {
+      "cleanup_td": {
+        "container_definitions": "[{\"name\": \"cleanup\", \"image\": \"busybox\", \"essential\": true, \"portMappings\": [], \"environment\": [], \"secrets\": [], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.cleanup_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
+        "cpu": "256",
+        "execution_role_arn": "${aws_iam_role.cleanup_exec_role.arn}",
+        "family": "prod-production-stack-cleanup",
+        "memory": "512",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": [
+          "FARGATE"
+        ],
+        "task_role_arn": "${aws_iam_role.cleanup_task_role.arn}"
+      },
+      "web_td": {
+        "container_definitions": "[{\"name\": \"web\", \"image\": \"nginx:latest\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [], \"secrets\": [{\"name\": \"DB_PASSWORD\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:password::\"}, {\"name\": \"DB_USERNAME\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:username::\"}], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.web_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
+        "cpu": "1024",
+        "execution_role_arn": "${aws_iam_role.web_exec_role.arn}",
+        "family": "prod-production-stack-web",
+        "memory": "2048",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": [
+          "FARGATE"
+        ],
+        "task_role_arn": "${aws_iam_role.web_task_role.arn}"
+      }
+    },
+    "aws_elasticache_cluster": {
+      "cache_cache": {
+        "cluster_id": "prod-production-stack-cache",
+        "engine": "redis",
+        "node_type": "cache.t3.micro",
+        "num_cache_nodes": 1,
+        "security_group_ids": [
+          "${aws_security_group.app_sg.id}"
+        ],
+        "subnet_group_name": "${aws_elasticache_subnet_group.cache_sng.name}"
+      }
+    },
+    "aws_elasticache_subnet_group": {
+      "cache_sng": {
+        "name": "prod-production-stack-cache-sng",
+        "subnet_ids": [
+          "subnet-3",
+          "subnet-4"
+        ]
+      }
+    },
+    "aws_iam_role": {
+      "cleanup_eb_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"events.amazonaws.com\"}}]}",
+        "name": "prod-production-stack-cleanup-eb-role"
+      },
+      "cleanup_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-production-stack-cleanup-exec-role"
+      },
+      "cleanup_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-production-stack-cleanup-task-role"
+      },
+      "web_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-production-stack-web-exec-role"
+      },
+      "web_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-production-stack-web-task-role"
+      }
+    },
+    "aws_iam_role_policy": {
+      "cleanup_eb_policy": {
+        "name": "prod-production-stack-cleanup-eb-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"ecs:RunTask\", \"Resource\": [\"${aws_ecs_task_definition.cleanup_td.arn}\"], \"Condition\": {\"ArnLike\": {\"ecs:cluster\": \"arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster\"}}}, {\"Effect\": \"Allow\", \"Action\": \"iam:PassRole\", \"Resource\": [\"*\"], \"Condition\": {\"StringLike\": {\"iam:PassedToService\": \"ecs-tasks.amazonaws.com\"}}}]}",
+        "role": "${aws_iam_role.cleanup_eb_role.name}"
+      },
+      "cleanup_exec_log_policy": {
+        "name": "prod-production-stack-cleanup-exec-log-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.cleanup_lg.arn}:*\"]}]}",
+        "role": "${aws_iam_role.cleanup_exec_role.name}"
+      },
+      "web_exec_log_policy": {
+        "name": "prod-production-stack-web-exec-log-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.web_lg.arn}:*\"]}]}",
+        "role": "${aws_iam_role.web_exec_role.name}"
+      },
+      "web_to_db_rds_secret": {
+        "name": "prod-production-stack-web-db-rds-secret",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"secretsmanager:GetSecretValue\"], \"Resource\": [\"${aws_secretsmanager_secret.db_db_secret.arn}\"]}]}",
+        "role": "${aws_iam_role.web_exec_role.name}"
+      }
+    },
+    "aws_lb_listener_rule": {
+      "web_listener_rule": {
+        "action": [
+          {
+            "target_group_arn": "${aws_lb_target_group.web_tg.arn}",
+            "type": "forward"
+          }
+        ],
+        "condition": [
+          {
+            "path_pattern": {
+              "values": [
+                "/*"
+              ]
+            }
+          }
+        ],
+        "listener_arn": "arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456",
+        "priority": 100
+      }
+    },
+    "aws_lb_target_group": {
+      "web_tg": {
+        "health_check": {
+          "enabled": true,
+          "matcher": "200-399",
+          "path": "/"
+        },
+        "name": "prod-production-stack-web-tg",
+        "port": 80,
+        "protocol": "HTTP",
+        "target_type": "ip",
+        "vpc_id": "vpc-123"
+      }
+    },
+    "aws_secretsmanager_secret": {
+      "db_db_secret": {
+        "description": "Credentials for db RDS",
+        "name": "prod-production-stack-db-credentials"
+      }
+    },
+    "aws_secretsmanager_secret_version": {
+      "db_db_secret_v1": {
+        "secret_id": "${aws_secretsmanager_secret.db_db_secret.id}",
+        "secret_string": "{\"username\": \"admin\", \"password\": \"${random_password.db_password.result}\", \"engine\": \"postgres\"}"
+      }
+    },
+    "aws_security_group": {
+      "app_sg": {
+        "description": "Security group for production-stack in prod",
+        "name": "prod-production-stack-sg",
+        "vpc_id": "vpc-123"
+      }
+    },
+    "aws_security_group_rule": {
+      "alb_to_web_rule": {
+        "cidr_blocks": [
+          "0.0.0.0/0"
+        ],
+        "description": "Allow ALB to talk to web",
+        "from_port": 80,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 80,
+        "type": "ingress"
+      },
+      "web_to_cache_rule": {
+        "description": "Allow web to talk to cache",
+        "from_port": 6379,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "source_security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 6379,
+        "type": "ingress"
+      },
+      "web_to_db_rule": {
+        "description": "Allow web to talk to db",
+        "from_port": 5432,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "source_security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 5432,
+        "type": "ingress"
+      }
+    },
+    "aws_wafv2_web_acl": {
+      "web_waf": {
+        "default_action": {
+          "allow": {}
+        },
+        "name": "prod-production-stack-web-waf",
+        "rule": [
+          {
+            "name": "AWS-AWSManagedRulesCommonRuleSet",
+            "override_action": {
+              "none": {}
+            },
+            "priority": 1,
+            "statement": {
+              "managed_rule_group_statement": {
+                "name": "AWSManagedRulesCommonRuleSet",
+                "vendor_name": "AWS"
+              }
+            },
+            "visibility_config": {
+              "cloudwatch_metrics_enabled": true,
+              "metric_name": "AWSManagedRulesCommonRuleSet",
+              "sampled_requests_enabled": true
+            }
+          }
+        ],
+        "scope": "CLOUDFRONT",
+        "visibility_config": {
+          "cloudwatch_metrics_enabled": true,
+          "metric_name": "webWAF",
+          "sampled_requests_enabled": true
+        }
+      }
+    },
+    "random_password": {
+      "db_password": {
+        "length": 20,
+        "special": false
+      }
+    }
+  },
+  "terraform": {
+    "required_providers": {
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": "~> 5.0"
+      },
+      "random": {
+        "source": "hashicorp/random",
+        "version": "~> 3.6"
+      }
+    }
+  }
+}
