@@ -217,6 +217,25 @@ class AppAutoscalingPolicy(BaseModel):
     target_tracking_scaling_policy_configuration: Dict[str, Any]
 
 
+class CloudwatchEventRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    schedule_expression: str
+    description: Optional[str] = None
+    state: str = "ENABLED"
+    tags: Optional[Dict[str, str]] = None
+
+
+class CloudwatchEventTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rule: str
+    arn: str
+    role_arn: Optional[str] = None
+    ecs_target: Optional[Dict[str, Any]] = None
+
+
 class AWSResources(BaseModel):
     """
     A registry of the AWS resources our compiler supports.
@@ -228,6 +247,12 @@ class AWSResources(BaseModel):
         default_factory=dict
     )
     aws_appautoscaling_policy: Dict[str, AppAutoscalingPolicy] = Field(
+        default_factory=dict
+    )
+    aws_cloudwatch_event_rule: Dict[str, CloudwatchEventRule] = Field(
+        default_factory=dict
+    )
+    aws_cloudwatch_event_target: Dict[str, CloudwatchEventTarget] = Field(
         default_factory=dict
     )
     aws_security_group: Dict[str, SecurityGroup] = Field(default_factory=dict)

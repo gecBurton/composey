@@ -29,6 +29,9 @@ class Service(BaseModel):
     )
     min_scale: int = Field(default=1, description="Minimum number of instances")
     max_scale: int = Field(default=1, description="Maximum number of instances")
+    schedule: Optional[str] = Field(
+        default=None, description="Cron expression for scheduled tasks"
+    )
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
     )
