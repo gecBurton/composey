@@ -32,6 +32,9 @@ class Service(BaseModel):
     schedule: Optional[str] = Field(
         default=None, description="Cron expression for scheduled tasks"
     )
+    cdn_enabled: bool = Field(
+        default=False, description="Whether to enable CDN for this service"
+    )
     env: dict[str, str] = Field(
         default_factory=dict, description="Environment variables"
     )
