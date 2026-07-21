@@ -5,11 +5,12 @@ import tempfile
 
 import pytest
 import requests
+from utils import get_examples
 
 from composey.compiler import compile_to_terraform
 
 
-@pytest.mark.parametrize("example_name", ["flask"])
+@pytest.mark.parametrize("example_name", get_examples())
 def test_terraform_apply_localstack(
     example_name, localstack_session, terraform_base, mock_localstack_env
 ):

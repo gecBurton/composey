@@ -1,7 +1,7 @@
 import json
 import re
 
-from ..models.aws import (
+from composey.models.aws import (
     AppAutoscalingPolicy,
     AppAutoscalingTarget,
     AWSResources,
@@ -29,8 +29,8 @@ from ..models.aws import (
     TerraformLifecycle,
     Wafv2WebAcl,
 )
-from ..models.environment import Environment
-from ..models.semantic import Application as SemanticApp
+from composey.models.environment import Environment
+from composey.models.semantic import Application as SemanticApp
 
 
 def infer(app: SemanticApp, env: Environment) -> AWSResources:
