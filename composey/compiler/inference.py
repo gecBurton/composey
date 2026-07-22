@@ -52,6 +52,19 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         tags=tags,
     )
 
+    # Declaring an aws_security_group with no inline egress makes Terraform strip
+    # AWS's default allow-all egress, leaving tasks with no outbound access (they
+    # can't pull images or write logs). Add an explicit allow-all egress rule.
+    resources.aws_security_group_rule["app_egress_rule"] = SecurityGroupRule(
+        type="egress",
+        from_port=0,
+        to_port=0,
+        protocol="-1",
+        security_group_id=f"${{aws_security_group.{app_sg_key}.id}}",
+        cidr_blocks=["0.0.0.0/0"],
+        description=f"Allow all outbound for {app.name} in {env.name}",
+    )
+
     # 2. Map each Semantic Service to AWS resources
     for service in app.services:
         # Define compute sizes (Fargate units)
