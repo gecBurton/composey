@@ -42,9 +42,7 @@ def main():
     if not buckets:
         fail("no aws_s3_bucket in applied state — minio was not substituted to S3")
     bucket_names = {b["values"]["bucket"] for b in buckets}
-    bucket_domains = {
-        b["values"].get("bucket_domain_name", "") for b in buckets
-    }
+    bucket_domains = {b["values"].get("bucket_domain_name", "") for b in buckets}
     print(f"  [ok] S3 bucket created: {', '.join(sorted(bucket_names))}")
 
     # 2. Nothing is running the minio image (substitution, not addition).
@@ -52,7 +50,9 @@ def main():
         cds = json.loads(td["values"]["container_definitions"])
         for c in cds:
             if "minio" in c.get("image", "").lower():
-                fail(f"minio is running as a container ({c['image']}) — not substituted")
+                fail(
+                    f"minio is running as a container ({c['image']}) — not substituted"
+                )
     print("  [ok] no minio container — substituted, not added")
 
     # 3. An IAM policy grants s3 access.
@@ -87,7 +87,9 @@ def main():
     if resolved_endpoint is None or "${" in resolved_endpoint:
         fail(f"S3_ENDPOINT not resolved: {resolved_endpoint!r}")
     if not any(dom and dom in resolved_endpoint for dom in bucket_domains):
-        fail(f"S3_ENDPOINT={resolved_endpoint!r} does not contain the bucket domain {bucket_domains}")
+        fail(
+            f"S3_ENDPOINT={resolved_endpoint!r} does not contain the bucket domain {bucket_domains}"
+        )
     print(f"  [ok] S3_ENDPOINT injected with real domain: {resolved_endpoint}")
 
     print("\n  All S3 substitution assertions passed.")
