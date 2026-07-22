@@ -56,6 +56,9 @@ class Service(BaseModel):
     build: Optional[Build] = Field(description="build", default=None)
     ports: Optional[list[Port]] = Field(description="ports", default=None)
     image: Optional[str] = Field(description="image", default=None)
+    command: Optional[Union[str, list[str]]] = Field(
+        description="command", default=None
+    )
     environment: dict[str, Optional[str]] = Field(
         description="environment", default_factory=dict
     )

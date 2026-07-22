@@ -32,6 +32,7 @@ class ContainerDefinition(BaseModel):
     name: str
     image: str
     essential: bool = True
+    command: Optional[List[str]] = None
     portMappings: List[Dict[str, Any]] = Field(default_factory=list)
     environment: List[Dict[str, str]] = Field(default_factory=list)
     secrets: List[Dict[str, str]] = Field(default_factory=list)
@@ -60,6 +61,7 @@ class EcsService(BaseModel):
     task_definition: str
     desired_count: int = 1
     launch_type: Literal["EC2", "FARGATE", "EXTERNAL"] = "FARGATE"
+    health_check_grace_period_seconds: Optional[int] = None
 
     network_configuration: Dict[str, Any]  # Subnets and SGs
     load_balancer: List[Dict[str, Any]] = Field(default_factory=list)
