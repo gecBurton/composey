@@ -84,6 +84,10 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         elif isinstance(docker_service.command, str):
             command = ["/bin/sh", "-c", docker_service.command]
 
+        # A service with a build context is built and pushed to ECR rather than
+        # pulled. Kept relative to the compose file for deterministic output.
+        build_context = docker_service.build.context if docker_service.build else None
+
         # Extract x-composey size/resource hints
         size = "small"
         cpu = None
@@ -121,6 +125,7 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
                 cpu=cpu,
                 memory=memory,
                 port=primary_port,
+                build_context=build_context,
                 command=command,
                 health_check_grace_period=health_check_grace_period,
                 min_scale=min_scale,

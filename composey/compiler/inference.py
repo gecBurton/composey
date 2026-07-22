@@ -12,6 +12,9 @@ from composey.models.aws import (
     ContainerDefinition,
     DbInstance,
     DbSubnetGroup,
+    DockerImage,
+    DockerRegistryImage,
+    EcrRepository,
     EcsService,
     EcsTaskDefinition,
     ElastiCacheCluster,
@@ -260,6 +263,60 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             ),
         )
 
+        # Build-from-source: provision ECR and build+push the image via Terraform
+        # (kreuzwerker/docker) so a `build:` service deploys without a prebuilt image.
+        container_image = service.image
+        if service.build_context:
+            ecr_key = f"{service.name}_ecr"
+            resources.aws_ecr_repository[ecr_key] = EcrRepository(
+                name=get_name(service.name).lower(),
+                tags=tags,
+            )
+
+            image_key = f"{service.name}_image"
+            resources.docker_image[image_key] = DockerImage(
+                name=f"${{aws_ecr_repository.{ecr_key}.repository_url}}:latest",
+                # Pin to amd64 to match Fargate's default X86_64 platform, so images
+                # built on an arm64 host (e.g. Apple Silicon) still run on ECS.
+                build={"context": service.build_context, "platform": "linux/amd64"},
+            )
+
+            push_key = f"{service.name}_push"
+            resources.docker_registry_image[push_key] = DockerRegistryImage(
+                name=f"${{docker_image.{image_key}.name}}",
+                keep_remotely=True,
+            )
+
+            # Reference the pushed digest so ECS redeploys when the image changes.
+            container_image = (
+                f"${{aws_ecr_repository.{ecr_key}.repository_url}}"
+                f"@${{docker_registry_image.{push_key}.sha256_digest}}"
+            )
+
+            # The execution role must be able to pull from the ECR repo.
+            ecr_pull_policy_key = f"{service.name}_exec_ecr_policy"
+            resources.aws_iam_role_policy[ecr_pull_policy_key] = IamRolePolicy(
+                name=get_name(f"{service.name}-exec-ecr-policy"),
+                role=f"${{aws_iam_role.{exec_role_key}.name}}",
+                policy=json.dumps(
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": [
+                                    "ecr:GetAuthorizationToken",
+                                    "ecr:BatchCheckLayerAvailability",
+                                    "ecr:GetDownloadUrlForLayer",
+                                    "ecr:BatchGetImage",
+                                ],
+                                "Resource": "*",
+                            }
+                        ],
+                    }
+                ),
+            )
+
         # Resolve storage to S3 buckets and IAM policies
         for bucket_name in service.storage:
             safe_id = "".join(c if c.isalnum() else "_" for c in bucket_name).strip("_")
@@ -346,7 +403,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         # Container Definition
         container = ContainerDefinition(
             name=service.name,
-            image=service.image,
+            image=container_image,
             command=service.command,
             portMappings=[
                 {

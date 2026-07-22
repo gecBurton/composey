@@ -27,6 +27,11 @@ class Service(BaseModel):
     port: Optional[int] = Field(
         default=None, description="The internal port the service listens on"
     )
+    build_context: Optional[str] = Field(
+        default=None,
+        description="Path (relative to the compose file) to a Docker build context. "
+        "When set, the image is built and pushed to ECR instead of pulled.",
+    )
     command: Optional[list[str]] = Field(
         default=None, description="Container command override (exec form)"
     )
