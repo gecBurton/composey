@@ -22,6 +22,13 @@ def test_terraform_apply_localstack(
     # 1. Compile
     tf_json = compile_to_terraform(compose_path, mock_localstack_env, example_name)
 
+    # Build-from-source examples require a real Docker build + registry push during
+    # apply, which cannot run against LocalStack (and needs the build context). Skip
+    # them here — their compilation is covered by golden/validate and their real
+    # deploy by the AWS smoke test.
+    if json.loads(tf_json).get("resource", {}).get("docker_image"):
+        pytest.skip(f"{example_name} builds an image; not applicable to LocalStack")
+
     # 2. Run terraform apply
     with tempfile.TemporaryDirectory() as tmpdir:
         # Copy the pre-initialized .terraform folder
