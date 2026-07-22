@@ -203,6 +203,10 @@ class SecretsManagerSecret(BaseModel):
 
     name: str
     description: Optional[str] = None
+    # Hard-delete on destroy (no 7-30 day recovery window) so a torn-down secret
+    # does not reserve its name and block re-creation, matching composey's
+    # ephemeral posture (skip_final_snapshot / force_destroy / force_delete).
+    recovery_window_in_days: int = 0
     tags: Optional[Dict[str, str]] = None
 
 
