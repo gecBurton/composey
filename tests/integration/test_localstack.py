@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -52,11 +53,27 @@ def test_terraform_apply_localstack(
             env=env,
         )
 
-        # 3. Assertions (verify resources in LocalStack)
-        # We'll use the standard AWS CLI style call to S3 (which works in community)
-        s3_res = requests.get(
-            f"{localstack_session}/",
-            headers={"Host": "s3.localhost.localstack.cloud"},
-            params={"Action": "ListBuckets"},
-        )
-        assert "local-flask" in s3_res.text.lower()
+        # 3. Assertions: verify the S3 buckets THIS example declares were created
+        # in LocalStack. Scoped to the current example so the test does not depend
+        # on execution order or state left by other examples. Examples with no
+        # bucket simply have nothing to assert here.
+        expected_buckets = {
+            b["bucket"]
+            for b in json.loads(tf_json)
+            .get("resource", {})
+            .get("aws_s3_bucket", {})
+            .values()
+        }
+        if expected_buckets:
+            # We'll use the standard AWS CLI style call to S3 (works in community).
+            s3_res = requests.get(
+                f"{localstack_session}/",
+                headers={"Host": "s3.localhost.localstack.cloud"},
+                params={"Action": "ListBuckets"},
+            )
+            listing = s3_res.text.lower()
+            for bucket in expected_buckets:
+                assert bucket.lower() in listing, (
+                    f"bucket {bucket!r} not found in LocalStack after apply: "
+                    f"{s3_res.text}"
+                )

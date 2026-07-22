@@ -21,6 +21,7 @@ PROFILE="${PROFILE:-personal}"                       # aws-vault profile
 NAME="${NAME:-smoke}"                                 # environment name
 COMPOSE="${COMPOSE:-examples/hello/compose.yml}"      # app to deploy
 PROJECT="${PROJECT:-hello}"                            # composey project name
+HTTP_PATH="${HTTP_PATH:-/}"                            # path to poll on the ALB
 EXPECT="${EXPECT:-Server name}"                        # string expected in HTTP body
 POLL_TIMEOUT="${POLL_TIMEOUT:-300}"                    # seconds to wait for healthy ALB
                                                        # (ALB default health check needs
@@ -80,19 +81,41 @@ eval "$TF init -input=false"
 eval "$TF apply -auto-approve"
 
 # --- 4. Poll the ALB until it serves the app ---------------------------------
-log "Polling http://$ALB_DNS/ (up to ${POLL_TIMEOUT}s)…"
-url="http://$ALB_DNS/"
+url="http://$ALB_DNS$HTTP_PATH"
+log "Polling $url (up to ${POLL_TIMEOUT}s)…"
 deadline=$(( SECONDS + POLL_TIMEOUT ))
+served=0
+body=""
 while (( SECONDS < deadline )); do
-  body="$(curl -fsS --max-time 5 "$url" 2>/dev/null || true)"
+  # No -f: capture non-2xx bodies (e.g. a 503 /health) for the EXPECT match and
+  # for diagnostics on timeout.
+  body="$(curl -sS --max-time 5 "$url" 2>/dev/null || true)"
   if [[ "$body" == *"$EXPECT"* ]]; then
-    log "SUCCESS — response contains '$EXPECT'. The app is live on real AWS. 🎉"
-    echo "----- response -----"
-    echo "$body" | head -20
-    exit 0
+    served=1
+    break
   fi
   printf '.'
   sleep 5
 done
+if (( served != 1 )); then
+  echo
+  echo "----- last response (for diagnosis) -----"
+  echo "${body:-<no response>}" | head -20
+  fail "timed out after ${POLL_TIMEOUT}s waiting for '$EXPECT' at $url"
+fi
 
-fail "timed out after ${POLL_TIMEOUT}s waiting for '$EXPECT' at $url"
+log "App is live — response contains '$EXPECT'. 🎉"
+echo "----- response -----"
+echo "$body" | head -20
+
+# --- 5. Managed-resource assertions ------------------------------------------
+# If composey substituted an S3 bucket (minio), prove it landed in real AWS and
+# that host injection reached the deployed task. Driven off applied TF state.
+if grep -q '"aws_s3_bucket"' "$BUILD_DIR/main.tf.json"; then
+  log "Asserting S3 substitution against applied AWS state…"
+  ( cd "$BUILD_DIR" && eval "$TF show -json" ) | python3 "$ROOT/scripts/assert_s3.py" \
+    || fail "S3 substitution assertions failed"
+fi
+
+log "SUCCESS — everything verified on real AWS."
+exit 0

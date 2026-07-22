@@ -347,6 +347,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
         container = ContainerDefinition(
             name=service.name,
             image=service.image,
+            command=service.command,
             portMappings=[
                 {
                     "containerPort": service.port,
@@ -386,6 +387,7 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             name=get_name(service.name),
             cluster=env.ecs_cluster_arn,
             task_definition=f"${{aws_ecs_task_definition.{task_def_key}.arn}}",
+            health_check_grace_period_seconds=service.health_check_grace_period,
             network_configuration={
                 "subnets": env.private_subnets,
                 "security_groups": [f"${{aws_security_group.{app_sg_key}.id}}"],

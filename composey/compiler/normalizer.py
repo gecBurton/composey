@@ -76,6 +76,14 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         ):
             capability = "object-storage"
 
+        # Normalize command to ECS exec form (a list). A string is shell form,
+        # so wrap it the way Docker would: /bin/sh -c "<string>".
+        command = None
+        if isinstance(docker_service.command, list):
+            command = docker_service.command
+        elif isinstance(docker_service.command, str):
+            command = ["/bin/sh", "-c", docker_service.command]
+
         # Extract x-composey size/resource hints
         size = "small"
         cpu = None
@@ -84,6 +92,7 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
         max_scale = 1
         schedule = None
         cdn_enabled = False
+        health_check_grace_period = None
 
         x_composey = docker_service.x_composey
         if "size" in x_composey:
@@ -100,6 +109,8 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
             schedule = x_composey["schedule"]
         if "cdn" in x_composey:
             cdn_enabled = bool(x_composey["cdn"])
+        if "health_check_grace_period" in x_composey:
+            health_check_grace_period = int(x_composey["health_check_grace_period"])
 
         semantic_services.append(
             SemanticService(
@@ -110,6 +121,8 @@ def normalize(app: DockerApplication, project_name: str) -> SemanticApplication:
                 cpu=cpu,
                 memory=memory,
                 port=primary_port,
+                command=command,
+                health_check_grace_period=health_check_grace_period,
                 min_scale=min_scale,
                 max_scale=max_scale,
                 schedule=schedule,

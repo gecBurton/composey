@@ -27,6 +27,13 @@ class Service(BaseModel):
     port: Optional[int] = Field(
         default=None, description="The internal port the service listens on"
     )
+    command: Optional[list[str]] = Field(
+        default=None, description="Container command override (exec form)"
+    )
+    health_check_grace_period: Optional[int] = Field(
+        default=None,
+        description="Seconds ECS ignores ALB health checks after a task starts",
+    )
     min_scale: int = Field(default=1, description="Minimum number of instances")
     max_scale: int = Field(default=1, description="Maximum number of instances")
     schedule: Optional[str] = Field(

@@ -1,0 +1,162 @@
+{
+  "provider": {
+    "aws": {
+      "region": "us-east-1"
+    }
+  },
+  "resource": {
+    "aws_cloudwatch_log_group": {
+      "doctor_lg": {
+        "name": "/ecs/prod-doctor-doctor",
+        "retention_in_days": 7
+      }
+    },
+    "aws_ecs_service": {
+      "doctor_service": {
+        "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
+        "desired_count": 1,
+        "health_check_grace_period_seconds": 180,
+        "launch_type": "FARGATE",
+        "load_balancer": [
+          {
+            "container_name": "doctor",
+            "container_port": 80,
+            "target_group_arn": "${aws_lb_target_group.doctor_tg.arn}"
+          }
+        ],
+        "name": "prod-doctor-doctor",
+        "network_configuration": {
+          "assign_public_ip": false,
+          "security_groups": [
+            "${aws_security_group.app_sg.id}"
+          ],
+          "subnets": [
+            "subnet-3",
+            "subnet-4"
+          ]
+        },
+        "task_definition": "${aws_ecs_task_definition.doctor_td.arn}"
+      }
+    },
+    "aws_ecs_task_definition": {
+      "doctor_td": {
+        "container_definitions": "[{\"name\": \"doctor\", \"image\": \"python:3.12-slim\", \"essential\": true, \"command\": [\"/bin/sh\", \"-c\", \"pip install --quiet --root-user-action=ignore flask boto3 && echo IiIiY29tcG9zZXktZG9jdG9yOiBwcm9iZXMgcmVhbCBjb25uZWN0aXZpdHkgdG8gY29tcG9zZXkncyBtYW5hZ2VkIHNlcnZpY2VzLgoKRWFjaCBjaGVjayBpcyBjb25kaXRpb25hbCBvbiB0aGUgZW52IHZhcnMgY29tcG9zZXkgaW5qZWN0cy4gSWYgdGhlIHZhciBmb3IgYQpjYXBhYmlsaXR5IGlzIGFic2VudCB0aGUgY2hlY2sgaXMgInNraXBwZWQiLCBub3QgZmFpbGVkIOKAlCBzbyB0aGUgc2FtZSBpbWFnZSBjYW4KdmVyaWZ5IGFueSBlbnZpcm9ubWVudC4gR0VUIC9oZWFsdGggcmV0dXJucyAyMDAgb25seSBpZiBldmVyeSBhY3RpdmUgY2hlY2sKcGFzc2VzLCA1MDMgb3RoZXJ3aXNlLiBUaGlzIGlzIHRoZSBzb3VyY2Ugb2YgdHJ1dGggZm9yIHRoZSBiYXNlNjQgYmxvYiBlbWJlZGRlZAppbiBjb21wb3NlLnltbCAoc2VlIHNjcmlwdHMvYnVpbGRfZG9jdG9yLnB5KS4KIiIiCgppbXBvcnQgb3MKCmZyb20gZmxhc2sgaW1wb3J0IEZsYXNrLCBqc29uaWZ5CgphcHAgPSBGbGFzayhfX25hbWVfXykKCgpkZWYgY2hlY2tfczMoKToKICAgICIiIlBVVCB0aGVuIEdFVCBhbiBvYmplY3QgdXNpbmcgdGhlIHRhc2sgcm9sZSDigJQgcHJvdmVzIG5ldHdvcmsgKyBJQU0gKyB3aXJpbmcuIiIiCiAgICBidWNrZXQgPSBvcy5lbnZpcm9uLmdldCgiQlVDS0VUX05BTUUiKQogICAgaWYgbm90IGJ1Y2tldDoKICAgICAgICByZXR1cm4gInNraXBwZWQ6IEJVQ0tFVF9OQU1FIG5vdCBzZXQiCiAgICBpbXBvcnQgYm90bzMKCiAgICBzMyA9IGJvdG8zLmNsaWVudCgiczMiKQogICAga2V5ID0gImNvbXBvc2V5LWRvY3Rvci9oZWFsdGgudHh0IgogICAgcGF5bG9hZCA9IGIiY29tcG9zZXktZG9jdG9yIgogICAgczMucHV0X29iamVjdChCdWNrZXQ9YnVja2V0LCBLZXk9a2V5LCBCb2R5PXBheWxvYWQpCiAgICBnb3QgPSBzMy5nZXRfb2JqZWN0KEJ1Y2tldD1idWNrZXQsIEtleT1rZXkpWyJCb2R5Il0ucmVhZCgpCiAgICBpZiBnb3QgIT0gcGF5bG9hZDoKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIlMzIHJvdW5kLXRyaXAgbWlzbWF0Y2giKQogICAgcmV0dXJuIGYib2s6IHB1dCtnZXQgb24gYnVja2V0IHtidWNrZXR9IgoKCkNIRUNLUyA9IHsiczMiOiBjaGVja19zM30KCgpAYXBwLmdldCgiL2hlYWx0aCIpCmRlZiBoZWFsdGgoKToKICAgIHJlc3VsdHMgPSB7fQogICAgb2sgPSBUcnVlCiAgICBmb3IgbmFtZSwgZm4gaW4gQ0hFQ0tTLml0ZW1zKCk6CiAgICAgICAgdHJ5OgogICAgICAgICAgICByZXN1bHRzW25hbWVdID0gZm4oKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZTogICMgbm9xYTogQkxFMDAxIC0gcmVwb3J0IGFueSBmYWlsdXJlIHZlcmJhdGltCiAgICAgICAgICAgIHJlc3VsdHNbbmFtZV0gPSBmIkZBSUw6IHt0eXBlKGUpLl9fbmFtZV9ffToge2V9IgogICAgICAgICAgICBvayA9IEZhbHNlCiAgICByZXR1cm4ganNvbmlmeSh7InN0YXR1cyI6ICJvayIgaWYgb2sgZWxzZSAidW5oZWFsdGh5IiwgImNoZWNrcyI6IHJlc3VsdHN9KSwgKAogICAgICAgIDIwMCBpZiBvayBlbHNlIDUwMwogICAgKQoKCkBhcHAuZ2V0KCIvIikKZGVmIHJvb3QoKToKICAgICMgS2VwdCB0cml2aWFsbHkgaGVhbHRoeSBzbyB0aGUgQUxCIHRhcmdldCBwYXNzZXMgd2hpbGUgY2hlY2tzIHJ1biBvbiAvaGVhbHRoLgogICAgcmV0dXJuICJjb21wb3NleS1kb2N0b3I6IEdFVCAvaGVhbHRoXG4iLCAyMDAKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgYXBwLnJ1bihob3N0PSIwLjAuMC4wIiwgcG9ydD04MCkK | base64 -d > /app.py && python /app.py\"], \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"AWS_DEFAULT_REGION\", \"value\": \"eu-west-2\"}, {\"name\": \"BUCKET_NAME\", \"value\": \"${aws_s3_bucket.blobs_bucket.id}\"}, {\"name\": \"S3_ENDPOINT\", \"value\": \"http://${aws_s3_bucket.blobs_bucket.bucket_domain_name}\"}], \"secrets\": [], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.doctor_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
+        "cpu": "256",
+        "execution_role_arn": "${aws_iam_role.doctor_exec_role.arn}",
+        "family": "prod-doctor-doctor",
+        "memory": "512",
+        "network_mode": "awsvpc",
+        "requires_compatibilities": [
+          "FARGATE"
+        ],
+        "task_role_arn": "${aws_iam_role.doctor_task_role.arn}"
+      }
+    },
+    "aws_iam_role": {
+      "doctor_exec_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-doctor-doctor-exec-role"
+      },
+      "doctor_task_role": {
+        "assume_role_policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Action\": \"sts:AssumeRole\", \"Effect\": \"Allow\", \"Principal\": {\"Service\": \"ecs-tasks.amazonaws.com\"}}]}",
+        "name": "prod-doctor-doctor-task-role"
+      }
+    },
+    "aws_iam_role_policy": {
+      "doctor_exec_log_policy": {
+        "name": "prod-doctor-doctor-exec-log-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.doctor_lg.arn}:*\"]}]}",
+        "role": "${aws_iam_role.doctor_exec_role.name}"
+      },
+      "doctor_to_blobs_s3_policy": {
+        "name": "prod-doctor-doctor-blobs-s3-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.blobs_bucket.arn}\", \"${aws_s3_bucket.blobs_bucket.arn}/*\"]}]}",
+        "role": "${aws_iam_role.doctor_task_role.name}"
+      }
+    },
+    "aws_lb_listener_rule": {
+      "doctor_listener_rule": {
+        "action": [
+          {
+            "target_group_arn": "${aws_lb_target_group.doctor_tg.arn}",
+            "type": "forward"
+          }
+        ],
+        "condition": [
+          {
+            "path_pattern": {
+              "values": [
+                "/*"
+              ]
+            }
+          }
+        ],
+        "listener_arn": "arn:aws:lb:us-east-1:123456789012:listener/app/shared-alb/123/456",
+        "priority": 100
+      }
+    },
+    "aws_lb_target_group": {
+      "doctor_tg": {
+        "health_check": {
+          "enabled": true,
+          "matcher": "200-399",
+          "path": "/"
+        },
+        "name": "prod-doctor-doctor-tg",
+        "port": 80,
+        "protocol": "HTTP",
+        "target_type": "ip",
+        "vpc_id": "vpc-123"
+      }
+    },
+    "aws_s3_bucket": {
+      "blobs_bucket": {
+        "bucket": "prod-doctor-blobs",
+        "force_destroy": true
+      }
+    },
+    "aws_security_group": {
+      "app_sg": {
+        "description": "Security group for doctor in prod",
+        "name": "prod-doctor-sg",
+        "vpc_id": "vpc-123"
+      }
+    },
+    "aws_security_group_rule": {
+      "alb_to_doctor_rule": {
+        "cidr_blocks": [
+          "0.0.0.0/0"
+        ],
+        "description": "Allow ALB to talk to doctor",
+        "from_port": 80,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 80,
+        "type": "ingress"
+      },
+      "app_egress_rule": {
+        "cidr_blocks": [
+          "0.0.0.0/0"
+        ],
+        "description": "Allow all outbound for doctor in prod",
+        "from_port": 0,
+        "protocol": "-1",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 0,
+        "type": "egress"
+      }
+    }
+  },
+  "terraform": {
+    "required_providers": {
+      "aws": {
+        "source": "hashicorp/aws",
+        "version": "~> 5.0"
+      },
+      "random": {
+        "source": "hashicorp/random",
+        "version": "~> 3.6"
+      }
+    }
+  }
+}
