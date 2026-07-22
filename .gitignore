@@ -1,5 +1,11 @@
 .terraform_cache/
 
+# Terraform state, provider binaries, and generated env files
+**/.terraform/
+*.tfstate
+*.tfstate.*
+bootstrap/environment.yml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
