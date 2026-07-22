@@ -58,6 +58,7 @@ def terraform_base():
             "required_providers": {
                 "aws": {"source": "hashicorp/aws", "version": "~> 5.0"},
                 "random": {"source": "hashicorp/random", "version": "~> 3.6"},
+                "docker": {"source": "kreuzwerker/docker", "version": "~> 3.0"},
             }
         }
     }

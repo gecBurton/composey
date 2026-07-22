@@ -1,3 +1,5 @@
+import json
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -83,6 +85,20 @@ def main(
 
         with open(output_file, "w") as f:
             f.write(tf_json)
+
+        # Copy any Docker build contexts next to the manifest so `terraform apply`
+        # (run from the output dir) can resolve their relative paths.
+        compose_dir = compose_file.absolute().parent
+        docker_images = json.loads(tf_json).get("resource", {}).get("docker_image", {})
+        for image in docker_images.values():
+            context = image.get("build", {}).get("context")
+            if not context:
+                continue
+            src = compose_dir / context
+            dst = output_dir / context
+            if src.is_dir():
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+                console.print(f"[bold blue]Copied build context:[/] {context}")
 
         console.print(
             f"[bold green]Success![/] Terraform manifest written to [cyan]{output_file}[/]"

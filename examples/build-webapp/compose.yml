@@ -1,0 +1,13 @@
+# Build-from-source: `web` has a build context instead of an image, so composey
+# provisions an ECR repo and builds+pushes the image via Terraform (kreuzwerker/
+# docker) during `terraform apply`, then runs it on Fargate behind the ALB.
+services:
+  web:
+    build:
+      context: app
+    ports:
+      - 80:80
+    networks:
+      - public
+networks:
+  public:

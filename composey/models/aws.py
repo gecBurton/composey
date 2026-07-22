@@ -85,6 +85,37 @@ class S3Bucket(BaseModel):
     tags: Optional[Dict[str, str]] = None
 
 
+class EcrRepository(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    # force_delete so `terraform destroy` removes the repo even with images in it.
+    force_delete: bool = True
+    image_tag_mutability: Literal["MUTABLE", "IMMUTABLE"] = "MUTABLE"
+    tags: Optional[Dict[str, str]] = None
+
+
+class DockerImage(BaseModel):
+    """kreuzwerker/docker docker_image: builds a local image from a context."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str  # the full tag, e.g. <ecr_repo_url>:latest
+    build: Dict[str, Any]  # { context = ..., dockerfile = ..., ... }
+    # Rebuild when files under the context change.
+    triggers: Optional[Dict[str, str]] = None
+
+
+class DockerRegistryImage(BaseModel):
+    """kreuzwerker/docker docker_registry_image: pushes a built image to a registry."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    keep_remotely: bool = True
+    triggers: Optional[Dict[str, str]] = None
+
+
 class IamRole(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -301,6 +332,9 @@ class AWSResources(BaseModel):
     )
     random_password: Dict[str, RandomPassword] = Field(default_factory=dict)
     aws_s3_bucket: Dict[str, S3Bucket] = Field(default_factory=dict)
+    aws_ecr_repository: Dict[str, EcrRepository] = Field(default_factory=dict)
+    docker_image: Dict[str, DockerImage] = Field(default_factory=dict)
+    docker_registry_image: Dict[str, DockerRegistryImage] = Field(default_factory=dict)
     aws_iam_role: Dict[str, IamRole] = Field(default_factory=dict)
     aws_iam_role_policy: Dict[str, IamRolePolicy] = Field(default_factory=dict)
     aws_db_instance: Dict[str, DbInstance] = Field(default_factory=dict)

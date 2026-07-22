@@ -31,14 +31,33 @@ def generate(resources: AWSResources, env: Environment) -> str:
             }
         )
 
-    manifest = TerraformManifest(
-        terraform={
-            "required_providers": {
-                "aws": {"source": "hashicorp/aws", "version": "~> 5.0"},
-                "random": {"source": "hashicorp/random", "version": "~> 3.6"},
+    required_providers = {
+        "aws": {"source": "hashicorp/aws", "version": "~> 5.0"},
+        "random": {"source": "hashicorp/random", "version": "~> 3.6"},
+    }
+    providers = {"aws": aws_provider}
+    data = None
+
+    # If any service builds from source, wire up the docker provider so it can
+    # build images and push to ECR, authenticated via an ECR token data source.
+    if resources.docker_image:
+        required_providers["docker"] = {
+            "source": "kreuzwerker/docker",
+            "version": "~> 3.0",
+        }
+        data = {"aws_ecr_authorization_token": {"token": {}}}
+        providers["docker"] = {
+            "registry_auth": {
+                "address": "${data.aws_ecr_authorization_token.token.proxy_endpoint}",
+                "username": "${data.aws_ecr_authorization_token.token.user_name}",
+                "password": "${data.aws_ecr_authorization_token.token.password}",
             }
-        },
-        provider={"aws": aws_provider},
+        }
+
+    manifest = TerraformManifest(
+        terraform={"required_providers": required_providers},
+        provider=providers,
+        data=data,
         resource=resources,
     )
 

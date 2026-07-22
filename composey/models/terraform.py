@@ -14,6 +14,7 @@ class TerraformManifest(BaseModel):
 
     terraform: Optional[Dict[str, Any]] = Field(default=None)
     provider: Optional[Dict[str, Any]] = Field(default=None)
+    data: Optional[Dict[str, Any]] = Field(default=None)
     variable: Optional[Dict[str, Any]] = Field(default=None)
     resource: AWSResources = Field(default_factory=AWSResources)
     output: Optional[Dict[str, Any]] = Field(default=None)
