@@ -37,7 +37,7 @@
         "password": "${random_password.db_password.result}",
         "publicly_accessible": false,
         "skip_final_snapshot": true,
-        "username": "admin",
+        "username": "composey",
         "vpc_security_group_ids": [
           "${aws_security_group.app_sg.id}"
         ]
@@ -269,11 +269,13 @@
     "aws_secretsmanager_secret": {
       "backend_db-password_secret": {
         "description": "Secret db-password for flask service backend",
-        "name": "prod-flask-backend-db-password"
+        "name": "prod-flask-backend-db-password",
+        "recovery_window_in_days": 0
       },
       "db_db_secret": {
         "description": "Credentials for db RDS",
-        "name": "prod-flask-db-credentials"
+        "name": "prod-flask-db-credentials",
+        "recovery_window_in_days": 0
       }
     },
     "aws_secretsmanager_secret_version": {
@@ -288,7 +290,7 @@
       },
       "db_db_secret_v1": {
         "secret_id": "${aws_secretsmanager_secret.db_db_secret.id}",
-        "secret_string": "{\"username\": \"admin\", \"password\": \"${random_password.db_password.result}\", \"engine\": \"mariadb\"}"
+        "secret_string": "{\"username\": \"composey\", \"password\": \"${random_password.db_password.result}\", \"engine\": \"mariadb\"}"
       }
     },
     "aws_security_group": {

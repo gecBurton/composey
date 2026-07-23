@@ -84,13 +84,19 @@ def main():
         fail(f"BUCKET_NAME={resolved_bucket!r} is not the real bucket {bucket_names}")
     print(f"  [ok] BUCKET_NAME injected with real bucket: {resolved_bucket}")
 
-    if resolved_endpoint is None or "${" in resolved_endpoint:
-        fail(f"S3_ENDPOINT not resolved: {resolved_endpoint!r}")
-    if not any(dom and dom in resolved_endpoint for dom in bucket_domains):
-        fail(
-            f"S3_ENDPOINT={resolved_endpoint!r} does not contain the bucket domain {bucket_domains}"
-        )
-    print(f"  [ok] S3_ENDPOINT injected with real domain: {resolved_endpoint}")
+    # S3_ENDPOINT is optional: apps hitting real S3 via the SDK don't need it.
+    # Only assert it resolved correctly when the app actually declares it.
+    if resolved_endpoint is None:
+        print("  [ok] S3_ENDPOINT not declared (app uses the default S3 endpoint)")
+    else:
+        if "${" in resolved_endpoint:
+            fail(f"S3_ENDPOINT declared but not resolved: {resolved_endpoint!r}")
+        if not any(dom and dom in resolved_endpoint for dom in bucket_domains):
+            fail(
+                f"S3_ENDPOINT={resolved_endpoint!r} does not contain the bucket "
+                f"domain {bucket_domains}"
+            )
+        print(f"  [ok] S3_ENDPOINT injected with real domain: {resolved_endpoint}")
 
     print("\n  All S3 substitution assertions passed.")
 

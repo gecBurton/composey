@@ -92,7 +92,9 @@ def infer(app: SemanticApp, env: Environment) -> AWSResources:
             elif "mariadb" in service.image.lower():
                 engine = "mariadb"
 
-            db_username = "admin"
+            # "admin" is a reserved master username on RDS Postgres; use a
+            # non-reserved name that is valid across engines.
+            db_username = "composey"
 
             # 1. Create a random master password
             password_key = f"{service.name}_password"

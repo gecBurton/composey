@@ -1,7 +1,19 @@
 {
+  "data": {
+    "aws_ecr_authorization_token": {
+      "token": {}
+    }
+  },
   "provider": {
     "aws": {
       "region": "us-east-1"
+    },
+    "docker": {
+      "registry_auth": {
+        "address": "${data.aws_ecr_authorization_token.token.proxy_endpoint}",
+        "password": "${data.aws_ecr_authorization_token.token.password}",
+        "username": "${data.aws_ecr_authorization_token.token.user_name}"
+      }
     }
   },
   "resource": {
@@ -11,11 +23,43 @@
         "retention_in_days": 7
       }
     },
+    "aws_db_instance": {
+      "db_db": {
+        "allocated_storage": 20,
+        "db_subnet_group_name": "${aws_db_subnet_group.db_sng.name}",
+        "engine": "postgres",
+        "identifier": "prod-doctor-db",
+        "instance_class": "db.t3.micro",
+        "password": "${random_password.db_password.result}",
+        "publicly_accessible": false,
+        "skip_final_snapshot": true,
+        "username": "composey",
+        "vpc_security_group_ids": [
+          "${aws_security_group.app_sg.id}"
+        ]
+      }
+    },
+    "aws_db_subnet_group": {
+      "db_sng": {
+        "name": "prod-doctor-db-sng",
+        "subnet_ids": [
+          "subnet-3",
+          "subnet-4"
+        ]
+      }
+    },
+    "aws_ecr_repository": {
+      "doctor_ecr": {
+        "force_delete": true,
+        "image_tag_mutability": "MUTABLE",
+        "name": "prod-doctor-doctor"
+      }
+    },
     "aws_ecs_service": {
       "doctor_service": {
         "cluster": "arn:aws:ecs:us-east-1:123456789012:cluster/prod-cluster",
         "desired_count": 1,
-        "health_check_grace_period_seconds": 180,
+        "health_check_grace_period_seconds": 120,
         "launch_type": "FARGATE",
         "load_balancer": [
           {
@@ -40,7 +84,7 @@
     },
     "aws_ecs_task_definition": {
       "doctor_td": {
-        "container_definitions": "[{\"name\": \"doctor\", \"image\": \"python:3.12-slim\", \"essential\": true, \"command\": [\"/bin/sh\", \"-c\", \"pip install --quiet --root-user-action=ignore flask boto3 && echo IiIiY29tcG9zZXktZG9jdG9yOiBwcm9iZXMgcmVhbCBjb25uZWN0aXZpdHkgdG8gY29tcG9zZXkncyBtYW5hZ2VkIHNlcnZpY2VzLgoKRWFjaCBjaGVjayBpcyBjb25kaXRpb25hbCBvbiB0aGUgZW52IHZhcnMgY29tcG9zZXkgaW5qZWN0cy4gSWYgdGhlIHZhciBmb3IgYQpjYXBhYmlsaXR5IGlzIGFic2VudCB0aGUgY2hlY2sgaXMgInNraXBwZWQiLCBub3QgZmFpbGVkIOKAlCBzbyB0aGUgc2FtZSBpbWFnZSBjYW4KdmVyaWZ5IGFueSBlbnZpcm9ubWVudC4gR0VUIC9oZWFsdGggcmV0dXJucyAyMDAgb25seSBpZiBldmVyeSBhY3RpdmUgY2hlY2sKcGFzc2VzLCA1MDMgb3RoZXJ3aXNlLiBUaGlzIGlzIHRoZSBzb3VyY2Ugb2YgdHJ1dGggZm9yIHRoZSBiYXNlNjQgYmxvYiBlbWJlZGRlZAppbiBjb21wb3NlLnltbCAoc2VlIHNjcmlwdHMvYnVpbGRfZG9jdG9yLnB5KS4KIiIiCgppbXBvcnQgb3MKCmZyb20gZmxhc2sgaW1wb3J0IEZsYXNrLCBqc29uaWZ5CgphcHAgPSBGbGFzayhfX25hbWVfXykKCgpkZWYgY2hlY2tfczMoKToKICAgICIiIlBVVCB0aGVuIEdFVCBhbiBvYmplY3QgdXNpbmcgdGhlIHRhc2sgcm9sZSDigJQgcHJvdmVzIG5ldHdvcmsgKyBJQU0gKyB3aXJpbmcuIiIiCiAgICBidWNrZXQgPSBvcy5lbnZpcm9uLmdldCgiQlVDS0VUX05BTUUiKQogICAgaWYgbm90IGJ1Y2tldDoKICAgICAgICByZXR1cm4gInNraXBwZWQ6IEJVQ0tFVF9OQU1FIG5vdCBzZXQiCiAgICBpbXBvcnQgYm90bzMKCiAgICBzMyA9IGJvdG8zLmNsaWVudCgiczMiKQogICAga2V5ID0gImNvbXBvc2V5LWRvY3Rvci9oZWFsdGgudHh0IgogICAgcGF5bG9hZCA9IGIiY29tcG9zZXktZG9jdG9yIgogICAgczMucHV0X29iamVjdChCdWNrZXQ9YnVja2V0LCBLZXk9a2V5LCBCb2R5PXBheWxvYWQpCiAgICBnb3QgPSBzMy5nZXRfb2JqZWN0KEJ1Y2tldD1idWNrZXQsIEtleT1rZXkpWyJCb2R5Il0ucmVhZCgpCiAgICBpZiBnb3QgIT0gcGF5bG9hZDoKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIlMzIHJvdW5kLXRyaXAgbWlzbWF0Y2giKQogICAgcmV0dXJuIGYib2s6IHB1dCtnZXQgb24gYnVja2V0IHtidWNrZXR9IgoKCkNIRUNLUyA9IHsiczMiOiBjaGVja19zM30KCgpAYXBwLmdldCgiL2hlYWx0aCIpCmRlZiBoZWFsdGgoKToKICAgIHJlc3VsdHMgPSB7fQogICAgb2sgPSBUcnVlCiAgICBmb3IgbmFtZSwgZm4gaW4gQ0hFQ0tTLml0ZW1zKCk6CiAgICAgICAgdHJ5OgogICAgICAgICAgICByZXN1bHRzW25hbWVdID0gZm4oKQogICAgICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZTogICMgbm9xYTogQkxFMDAxIC0gcmVwb3J0IGFueSBmYWlsdXJlIHZlcmJhdGltCiAgICAgICAgICAgIHJlc3VsdHNbbmFtZV0gPSBmIkZBSUw6IHt0eXBlKGUpLl9fbmFtZV9ffToge2V9IgogICAgICAgICAgICBvayA9IEZhbHNlCiAgICByZXR1cm4ganNvbmlmeSh7InN0YXR1cyI6ICJvayIgaWYgb2sgZWxzZSAidW5oZWFsdGh5IiwgImNoZWNrcyI6IHJlc3VsdHN9KSwgKAogICAgICAgIDIwMCBpZiBvayBlbHNlIDUwMwogICAgKQoKCkBhcHAuZ2V0KCIvIikKZGVmIHJvb3QoKToKICAgICMgS2VwdCB0cml2aWFsbHkgaGVhbHRoeSBzbyB0aGUgQUxCIHRhcmdldCBwYXNzZXMgd2hpbGUgY2hlY2tzIHJ1biBvbiAvaGVhbHRoLgogICAgcmV0dXJuICJjb21wb3NleS1kb2N0b3I6IEdFVCAvaGVhbHRoXG4iLCAyMDAKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgYXBwLnJ1bihob3N0PSIwLjAuMC4wIiwgcG9ydD04MCkK | base64 -d > /app.py && python /app.py\"], \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"AWS_DEFAULT_REGION\", \"value\": \"eu-west-2\"}, {\"name\": \"BUCKET_NAME\", \"value\": \"${aws_s3_bucket.blobs_bucket.id}\"}, {\"name\": \"S3_ENDPOINT\", \"value\": \"http://${aws_s3_bucket.blobs_bucket.bucket_domain_name}\"}], \"secrets\": [], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.doctor_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
+        "container_definitions": "[{\"name\": \"doctor\", \"image\": \"${aws_ecr_repository.doctor_ecr.repository_url}@${docker_registry_image.doctor_push.sha256_digest}\", \"essential\": true, \"portMappings\": [{\"containerPort\": 80, \"hostPort\": 80, \"protocol\": \"tcp\"}], \"environment\": [{\"name\": \"BUCKET_NAME\", \"value\": \"${aws_s3_bucket.blobs_bucket.id}\"}, {\"name\": \"DB_HOST\", \"value\": \"${aws_db_instance.db_db.address}\"}, {\"name\": \"REDIS_URL\", \"value\": \"redis://${aws_elasticache_cluster.cache_cache.cache_nodes[0].address}:6379\"}], \"secrets\": [{\"name\": \"DB_PASSWORD\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:password::\"}, {\"name\": \"DB_USERNAME\", \"valueFrom\": \"${aws_secretsmanager_secret.db_db_secret.arn}:username::\"}], \"logConfiguration\": {\"logDriver\": \"awslogs\", \"options\": {\"awslogs-group\": \"${aws_cloudwatch_log_group.doctor_lg.name}\", \"awslogs-region\": \"us-east-1\", \"awslogs-stream-prefix\": \"ecs\"}}}]",
         "cpu": "256",
         "execution_role_arn": "${aws_iam_role.doctor_exec_role.arn}",
         "family": "prod-doctor-doctor",
@@ -50,6 +94,27 @@
           "FARGATE"
         ],
         "task_role_arn": "${aws_iam_role.doctor_task_role.arn}"
+      }
+    },
+    "aws_elasticache_cluster": {
+      "cache_cache": {
+        "cluster_id": "prod-doctor-cache",
+        "engine": "redis",
+        "node_type": "cache.t3.micro",
+        "num_cache_nodes": 1,
+        "security_group_ids": [
+          "${aws_security_group.app_sg.id}"
+        ],
+        "subnet_group_name": "${aws_elasticache_subnet_group.cache_sng.name}"
+      }
+    },
+    "aws_elasticache_subnet_group": {
+      "cache_sng": {
+        "name": "prod-doctor-cache-sng",
+        "subnet_ids": [
+          "subnet-3",
+          "subnet-4"
+        ]
       }
     },
     "aws_iam_role": {
@@ -63,6 +128,11 @@
       }
     },
     "aws_iam_role_policy": {
+      "doctor_exec_ecr_policy": {
+        "name": "prod-doctor-doctor-exec-ecr-policy",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"ecr:GetAuthorizationToken\", \"ecr:BatchCheckLayerAvailability\", \"ecr:GetDownloadUrlForLayer\", \"ecr:BatchGetImage\"], \"Resource\": \"*\"}]}",
+        "role": "${aws_iam_role.doctor_exec_role.name}"
+      },
       "doctor_exec_log_policy": {
         "name": "prod-doctor-doctor-exec-log-policy",
         "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"logs:CreateLogStream\", \"logs:PutLogEvents\"], \"Resource\": [\"${aws_cloudwatch_log_group.doctor_lg.arn}:*\"]}]}",
@@ -72,6 +142,11 @@
         "name": "prod-doctor-doctor-blobs-s3-policy",
         "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"s3:*\"], \"Resource\": [\"${aws_s3_bucket.blobs_bucket.arn}\", \"${aws_s3_bucket.blobs_bucket.arn}/*\"]}]}",
         "role": "${aws_iam_role.doctor_task_role.name}"
+      },
+      "doctor_to_db_rds_secret": {
+        "name": "prod-doctor-doctor-db-rds-secret",
+        "policy": "{\"Version\": \"2012-10-17\", \"Statement\": [{\"Effect\": \"Allow\", \"Action\": [\"secretsmanager:GetSecretValue\"], \"Resource\": [\"${aws_secretsmanager_secret.db_db_secret.arn}\"]}]}",
+        "role": "${aws_iam_role.doctor_exec_role.name}"
       }
     },
     "aws_lb_listener_rule": {
@@ -115,6 +190,19 @@
         "force_destroy": true
       }
     },
+    "aws_secretsmanager_secret": {
+      "db_db_secret": {
+        "description": "Credentials for db RDS",
+        "name": "prod-doctor-db-credentials",
+        "recovery_window_in_days": 0
+      }
+    },
+    "aws_secretsmanager_secret_version": {
+      "db_db_secret_v1": {
+        "secret_id": "${aws_secretsmanager_secret.db_db_secret.id}",
+        "secret_string": "{\"username\": \"composey\", \"password\": \"${random_password.db_password.result}\", \"engine\": \"postgres\"}"
+      }
+    },
     "aws_security_group": {
       "app_sg": {
         "description": "Security group for doctor in prod",
@@ -144,6 +232,45 @@
         "security_group_id": "${aws_security_group.app_sg.id}",
         "to_port": 0,
         "type": "egress"
+      },
+      "doctor_to_cache_rule": {
+        "description": "Allow doctor to talk to cache",
+        "from_port": 6379,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "source_security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 6379,
+        "type": "ingress"
+      },
+      "doctor_to_db_rule": {
+        "description": "Allow doctor to talk to db",
+        "from_port": 5432,
+        "protocol": "tcp",
+        "security_group_id": "${aws_security_group.app_sg.id}",
+        "source_security_group_id": "${aws_security_group.app_sg.id}",
+        "to_port": 5432,
+        "type": "ingress"
+      }
+    },
+    "docker_image": {
+      "doctor_image": {
+        "build": {
+          "context": "app",
+          "platform": "linux/amd64"
+        },
+        "name": "${aws_ecr_repository.doctor_ecr.repository_url}:latest"
+      }
+    },
+    "docker_registry_image": {
+      "doctor_push": {
+        "keep_remotely": true,
+        "name": "${docker_image.doctor_image.name}"
+      }
+    },
+    "random_password": {
+      "db_password": {
+        "length": 20,
+        "special": false
       }
     }
   },
@@ -152,6 +279,10 @@
       "aws": {
         "source": "hashicorp/aws",
         "version": "~> 5.0"
+      },
+      "docker": {
+        "source": "kreuzwerker/docker",
+        "version": "~> 3.0"
       },
       "random": {
         "source": "hashicorp/random",
